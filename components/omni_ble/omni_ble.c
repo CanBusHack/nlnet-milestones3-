@@ -43,6 +43,7 @@
 #include <nimble/ble.h>
 #include <nimble/nimble_port.h>
 #include <nimble/nimble_port_freertos.h>
+#include <services/ans/ble_svc_ans.h>
 #include <services/gap/ble_svc_gap.h>
 
 #include <omnitrix/omni_ble.h>
@@ -59,8 +60,6 @@ static int omni_ble_gap_event_cb(struct ble_gap_event* event, void* arg);
 
 /** Start advertising */
 static void omni_ble_advertise() {
-    static const uint16_t GATT_SVR_SVC_ALERT_UUID = 0x1811;
-
     const char* name = ble_svc_gap_device_name();
     struct ble_hs_adv_fields fields = {
         .flags = BLE_HS_ADV_F_DISC_GEN | BLE_HS_ADV_F_BREDR_UNSUP,
@@ -70,7 +69,7 @@ static void omni_ble_advertise() {
         .name_len = strlen(name),
         .name_is_complete = 1,
         .uuids16 = (ble_uuid16_t[]) {
-            BLE_UUID16_INIT(GATT_SVR_SVC_ALERT_UUID),
+            BLE_UUID16_INIT(BLE_SVC_ANS_UUID16),
         },
         .num_uuids16 = 1,
         .uuids16_is_complete = 1,
