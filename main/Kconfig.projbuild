@@ -1,0 +1,11 @@
+menu "Omnitrix config"
+
+    menuconfig OMNITRIX_ENABLE_BLE
+        bool "Enable BLE component"
+        default y
+
+    config OMNITRIX_ENABLE_OTA
+        bool "Enable OTA component"
+        default y
+
+endmenu
