@@ -48,7 +48,7 @@
 #include <services/gap/ble_svc_gap.h>
 #include <services/gatt/ble_svc_gatt.h>
 
-#include <omnitrix/omni_ble.h>
+#include <omnitrix/ble.h>
 
 /** Logging tag (omni_ble) */
 static const char tag[] = "omni_ble";

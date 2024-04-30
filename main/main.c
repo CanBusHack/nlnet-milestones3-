@@ -2,7 +2,7 @@
 
 #ifdef CONFIG_OMNITRIX_ENABLE_BLE
 #include <host/ble_gatt.h>
-#include <omnitrix/omni_ble.h>
+#include <omnitrix/ble.h>
 #endif
 
 static const char tag[] = "omnitrix";

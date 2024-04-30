@@ -1,6 +1,10 @@
 menu "Omnitrix config"
 
-    menuconfig OMNITRIX_ENABLE_BLE
+    config OMNITRIX_FIMRWARE_IDENTITY
+        string "Unique identity name for app"
+        default "BlinkCar Factory App v1.0"
+
+    config OMNITRIX_ENABLE_BLE
         bool "Enable BLE component"
         default y
 
