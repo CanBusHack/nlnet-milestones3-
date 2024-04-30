@@ -34,6 +34,7 @@
 #include <stdint.h>
 
 #include <host/ble_gap.h>
+#include <host/ble_gatt.h>
 #include <host/ble_hs.h>
 #include <host/ble_hs_adv.h>
 #include <host/ble_hs_id.h>
@@ -45,9 +46,9 @@
 #include <nimble/nimble_port_freertos.h>
 #include <services/ans/ble_svc_ans.h>
 #include <services/gap/ble_svc_gap.h>
+#include <services/gatt/ble_svc_gatt.h>
 
 #include <omnitrix/omni_ble.h>
-#include <omnitrix/omni_ble_gatt.h>
 
 /** Logging tag (omni_ble) */
 static const char tag[] = "omni_ble";
@@ -101,7 +102,7 @@ static int omni_ble_gap_event_cb(struct ble_gap_event* event, void* arg) {
             struct ble_gap_conn_desc desc;
             int rc = ble_gap_conn_find(event->connect.conn_handle, &desc);
             assert(rc == 0);
-            ESP_LOGI(tag, "connection: %p", &desc); // TODO: print struct fields
+            ESP_LOGI(tag, "connection: %p", (void*)&desc); // TODO: print struct fields
         } else {
             omni_ble_advertise();
         }
@@ -163,6 +164,29 @@ static void omni_ble_on_sync(void) {
     omni_ble_advertise();
 }
 
+/** BLE GATT registration callback */
+void omni_ble_gatts_register_cb(struct ble_gatt_register_ctxt* ctxt, void* arg) {
+    char buf[BLE_UUID_STR_LEN];
+
+    switch (ctxt->op) {
+    case BLE_GATT_REGISTER_OP_SVC:
+        ESP_LOGD(tag, "registered service %s with handle %d", ble_uuid_to_str(ctxt->svc.svc_def->uuid, buf), ctxt->svc.handle);
+        break;
+
+    case BLE_GATT_REGISTER_OP_CHR:
+        ESP_LOGD(tag, "registering characteristic %s with def_handle %d val_handle %d", ble_uuid_to_str(ctxt->chr.chr_def->uuid, buf), ctxt->chr.def_handle, ctxt->chr.val_handle);
+        break;
+
+    case BLE_GATT_REGISTER_OP_DSC:
+        ESP_LOGD(tag, "registering descriptor %s with handle %d", ble_uuid_to_str(ctxt->dsc.dsc_def->uuid, buf), ctxt->dsc.handle);
+        break;
+
+    default:
+        assert(0);
+        break;
+    }
+}
+
 /** BLE host task */
 static void omni_ble_host_task(void* param) {
     ESP_LOGI(tag, "BLE host task started");
@@ -172,7 +196,7 @@ static void omni_ble_host_task(void* param) {
 }
 
 /** Initialize BLE */
-void omni_ble_main(void) {
+void omni_ble_main(const struct ble_gatt_svc_def* const* args) {
     esp_err_t ret = nvs_flash_init();
     if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
         ESP_ERROR_CHECK(nvs_flash_erase());
@@ -196,10 +220,36 @@ void omni_ble_main(void) {
     ble_hs_cfg.sm_mitm = 0;
     ble_hs_cfg.sm_sc = 1;
 
-    int rc = omni_ble_gatt_svr_init();
-    assert(rc == 0);
+    ble_svc_gap_init();
+    ble_svc_gatt_init();
 
-    rc = ble_svc_gap_device_name_set(CONFIG_OMNITRIX_BLE_DEVICE_NAME);
+    for (int i = 0; i < 10 && args[i]; i++) {
+        int rc = ble_gatts_count_cfg(args[i]);
+        if (rc != 0) {
+            ESP_LOGE(tag, "Failed to init components: %d", ret);
+            return;
+        }
+        if (i >= 9) {
+            ESP_LOGE(tag, "Too many components or incorrect argument!");
+            return;
+        }
+    }
+
+    for (int i = 0; i < 10 && args[i]; i++) {
+        int rc = ble_gatts_add_svcs(args[i]);
+        if (rc != 0) {
+            ESP_LOGE(tag, "Failed to init components: %d", ret);
+            return;
+        }
+        if (i >= 9) {
+            ESP_LOGE(tag, "Too many components or incorrect argument!");
+            return;
+        }
+    }
+
+    ble_svc_ans_init();
+
+    int rc = ble_svc_gap_device_name_set(CONFIG_OMNITRIX_BLE_DEVICE_NAME);
     assert(rc == 0);
 
     /** For some reason, this isn't in any header files?! */
