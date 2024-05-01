@@ -116,10 +116,10 @@ static int gatt_svc_access(uint16_t conn_handle, uint16_t attr_handle, struct bl
                     ptr = (ptr << 8) | buffer[i];
                 }
                 switch (ptr) {
-                case 0xFFFFFFFE:
+                case UINT32_MAX - 1:
                     rc = ota_begin();
                     break;
-                case 0xFFFFFFFF:
+                case UINT32_MAX:
                     rc = ota_end();
                     break;
                 default:

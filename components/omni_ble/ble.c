@@ -124,7 +124,7 @@ static int omni_ble_gap_event_cb(struct ble_gap_event* event, void* arg) {
         if (rc == 0) {
             ble_store_util_delete_peer(&desc.peer_id_addr);
         }
-        return 0;
+        return BLE_GAP_REPEAT_PAIRING_RETRY;
     }
 
     default:
