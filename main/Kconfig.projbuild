@@ -4,12 +4,21 @@ menu "Omnitrix config"
         string "Unique identity name for app"
         default "BlinkCar Factory App v1.0"
 
-    config OMNITRIX_ENABLE_BLE
+    menuconfig OMNITRIX_ENABLE_BLE
+        depends on BT_NIMBLE_ENABLED
         bool "Enable BLE component"
         default y
 
-    config OMNITRIX_ENABLE_OTA
+    source "$(shell, dirname $(shell, dirname $(filename)))/components/omni_ble/Kconfig.inc"
+
+    menuconfig OMNITRIX_ENABLE_OTA
         bool "Enable OTA component"
+        default y
+
+    source "$(shell, dirname $(shell, dirname $(filename)))/components/omni_ota/Kconfig.inc"
+
+    menuconfig OMNITRIX_ENABLE_HELLO
+        bool "Enable Hello World component"
         default y
 
 endmenu
