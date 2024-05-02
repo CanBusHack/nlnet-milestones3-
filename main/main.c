@@ -13,12 +13,19 @@
 #include <omnitrix/ota.h>
 #endif
 
+#ifdef CONFIG_OMNITRIX_ENABLE_HELLO
+#include <omnitrix/hello.h>
+#endif
+
 static const char tag[] = "omnitrix";
 
 #ifdef CONFIG_OMNITRIX_ENABLE_BLE
 static const struct ble_gatt_svc_def* gatt_svr_svcs[] = {
 #ifdef CONFIG_OMNITRIX_ENABLE_OTA
     omni_ota_gatt_svr_svcs,
+#endif
+#ifdef CONFIG_OMNITRIX_ENABLE_HELLO
+    omni_hello_gatt_svr_svcs,
 #endif
     NULL,
 };
@@ -58,5 +65,10 @@ void app_main(void) {
 #ifdef CONFIG_OMNITRIX_ENABLE_BLE
     ESP_LOGI(tag, "starting BLE");
     omni_ble_main(gatt_svr_svcs);
+#endif
+
+#ifdef CONFIG_OMNITRIX_ENABLE_HELLO
+    ESP_LOGI(tag, "starting Hello World");
+    omni_hello_main();
 #endif
 }
