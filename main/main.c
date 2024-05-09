@@ -67,6 +67,11 @@ void app_main(void) {
     omni_ble_main(gatt_svr_svcs);
 #endif
 
+#ifdef CONFIG_OMNITRIX_ENABLE_OTA
+    ESP_LOGI(tag, "starting OTA");
+    omni_ota_main();
+#endif
+
 #ifdef CONFIG_OMNITRIX_ENABLE_HELLO
     ESP_LOGI(tag, "starting Hello World");
     omni_hello_main();

@@ -29,8 +29,6 @@
 #include <esp_check.h>
 #include <esp_err.h>
 #include <esp_log.h>
-#include <nvs.h>
-#include <nvs_flash.h>
 #include <stdint.h>
 
 #include <host/ble_gap.h>
@@ -49,6 +47,7 @@
 #include <services/gatt/ble_svc_gatt.h>
 
 #include <omnitrix/ble.h>
+#include <omnitrix/libnvs.h>
 
 /** Logging tag (omni_ble) */
 static const char tag[] = "omni_ble";
@@ -197,14 +196,8 @@ static void omni_ble_host_task(void* param) {
 
 /** Initialize BLE */
 void omni_ble_main(const struct ble_gatt_svc_def* const* args) {
-    esp_err_t ret = nvs_flash_init();
-    if (ret == ESP_ERR_NVS_NO_FREE_PAGES || ret == ESP_ERR_NVS_NEW_VERSION_FOUND) {
-        ESP_ERROR_CHECK(nvs_flash_erase());
-        ret = nvs_flash_init();
-    }
-    ESP_ERROR_CHECK(ret);
-
-    ret = nimble_port_init();
+    omni_libnvs_main();
+    esp_err_t ret = nimble_port_init();
     if (ret != ESP_OK) {
         ESP_LOGE(tag, "Failed to init nimble: %d", ret);
         return;

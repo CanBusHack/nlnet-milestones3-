@@ -7,4 +7,6 @@
 extern const struct ble_gatt_svc_def omni_ota_gatt_svr_svcs[];
 #endif
 
+void omni_ota_main(void);
+
 #endif

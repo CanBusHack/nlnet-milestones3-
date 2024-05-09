@@ -9,6 +9,7 @@
 #include <host/ble_hs_mbuf.h>
 #include <os/os_mbuf.h>
 
+#include <omnitrix/libnvs.h>
 #include <omnitrix/ota.h>
 
 #ifdef CONFIG_OMNITRIX_ENABLE_BLE
@@ -167,3 +168,7 @@ const struct ble_gatt_svc_def omni_ota_gatt_svr_svcs[] = {
     },
 };
 #endif
+
+void omni_ota_main(void) {
+    omni_libnvs_main();
+}
