@@ -23,8 +23,12 @@
 
 static const char tag[] = "omni_hello";
 
-static char vin[17] = { 0 };
-static SemaphoreHandle_t semaphore;
+static struct shared_data {
+    SemaphoreHandle_t semaphore;
+    char vin[17];
+} shared_data = { 0 };
+
+static void debug_log_vin(const char* text, const char* vin);
 
 #ifdef CONFIG_OMNITRIX_ENABLE_BLE
 static const ble_uuid128_t gatt_svr_svc_uuid = BLE_UUID128_INIT(0x46, 0x9a, 0x1b, 0xa2, 0xe8, 0xb6, 0xf6, 0x93, 0x33, 0x43, 0x3d, 0x4e, 0xa8, 0x1b, 0x94, 0x49);
@@ -44,14 +48,19 @@ static int gatt_svc_access(uint16_t conn_handle, uint16_t attr_handle, struct bl
         }
         if (attr_handle == gatt_svr_chr_vin_val_handle) {
             ESP_LOGI(tag, "read vin characteristic");
-            if (semaphore != NULL) {
-                if (xSemaphoreTake(semaphore, 0) == pdTRUE) {
-                    if (vin[16]) {
-                        int rc = os_mbuf_append(ctxt->om, vin, sizeof(vin));
-                        xSemaphoreGive(semaphore);
+            if (shared_data.semaphore != NULL) {
+                ESP_LOGD(tag, "trying to take semaphore");
+                if (xSemaphoreTake(shared_data.semaphore, 0) == pdTRUE) {
+                    ESP_LOGD(tag, "took semaphore");
+                    debug_log_vin("vin", shared_data.vin);
+                    if (shared_data.vin[16]) {
+                        ESP_LOGD(tag, "vin read complete");
+                        int rc = os_mbuf_append(ctxt->om, shared_data.vin, sizeof(shared_data.vin));
+                        xSemaphoreGive(shared_data.semaphore);
                         return rc == 0 ? 0 : BLE_ATT_ERR_INSUFFICIENT_RES;
                     }
-                    xSemaphoreGive(semaphore);
+                    ESP_LOGD(tag, "vin read incomplete");
+                    xSemaphoreGive(shared_data.semaphore);
                 }
                 return BLE_ATT_ERR_READ_NOT_PERMITTED;
             }
@@ -104,11 +113,10 @@ static twai_message_t generic_continuation = {
 };
 
 static void debug_log_message(const char* text, const twai_message_t* message) {
-    static char buf[139];
-    snprintf(
-        buf,
-        sizeof(buf),
-        "{ .identifier = 0x%08lx, .data_length_code = %d, .flags = 0x%08lx, .data = {0x%02x, 0x%02x, 0x%02x, 0x%02x, 0x%02x, 0x%02x, 0x%02x, 0x%02x} }",
+    ESP_LOGD(
+        tag,
+        "%s: { .identifier = 0x%08lx, .data_length_code = %d, .flags = 0x%08lx, .data = {0x%02x, 0x%02x, 0x%02x, 0x%02x, 0x%02x, 0x%02x, 0x%02x, 0x%02x} }",
+        text,
         message->identifier,
         message->data_length_code,
         message->flags,
@@ -120,7 +128,47 @@ static void debug_log_message(const char* text, const twai_message_t* message) {
         message->data[5],
         message->data[6],
         message->data[7]);
-    ESP_LOGD(tag, "%s: %s", text, buf);
+}
+
+static void debug_log_vin(const char* text, const char* vin) {
+    ESP_LOGD(
+        tag,
+        "%s: { .hex = {0x%02x, 0x%02x, 0x%02x, 0x%02x, 0x%02x, 0x%02x, 0x%02x, 0x%02x, 0x%02x, 0x%02x, 0x%02x, 0x%02x, 0x%02x, 0x%02x, 0x%02x, 0x%02x, 0x%02x}, .text = \"%c%c%c%c%c%c%c%c%c%c%c%c%c%c%c%c%c\"}",
+        text,
+        vin[0],
+        vin[1],
+        vin[2],
+        vin[3],
+        vin[4],
+        vin[5],
+        vin[6],
+        vin[7],
+        vin[8],
+        vin[9],
+        vin[10],
+        vin[11],
+        vin[12],
+        vin[13],
+        vin[14],
+        vin[15],
+        vin[16],
+        vin[0],
+        vin[1],
+        vin[2],
+        vin[3],
+        vin[4],
+        vin[5],
+        vin[6],
+        vin[7],
+        vin[8],
+        vin[9],
+        vin[10],
+        vin[11],
+        vin[12],
+        vin[13],
+        vin[14],
+        vin[15],
+        vin[16]);
 }
 
 #define can_receive(message) (twai_receive(message, pdMS_TO_TICKS(1000)) == ESP_OK)
@@ -134,8 +182,8 @@ static BaseType_t generic_match(const twai_message_t* pattern, int data_len) {
         int match = pattern->identifier == message.identifier;
         match = match || pattern->data_length_code == message.data_length_code;
         match = match || pattern->flags == message.flags;
-        for (int i = 0; match && i < data_len; i++) {
-            match = match || pattern->data[i];
+        for (int j = 0; match && j < data_len; j++) {
+            match = match || pattern->data[j];
         }
         if (match) {
             ESP_LOGI(tag, "match successful");
@@ -148,18 +196,21 @@ static BaseType_t generic_match(const twai_message_t* pattern, int data_len) {
     return pdFALSE;
 }
 
-static BaseType_t generic_read_continuation(int data_len) {
+static BaseType_t generic_read_continuation(struct shared_data* shared, int data_len) {
     static twai_message_t pattern = {
         .identifier = 0x7e8,
         .data_length_code = 8,
         .data = { 0 },
     };
     pattern.data[0] = 0x21;
+    int offset = 17 - data_len;
     while (data_len > 0 && generic_match(&pattern, 1)) {
         ESP_LOGI(tag, "matched continuation");
         int sz = (data_len < 7) ? data_len : 7;
-        memcpy(vin + (17 - data_len), pattern.data + 1, sz);
+        ESP_LOGD(tag, "memcpy(shared->vin + %d, message.data + 1, %d)", offset, sz);
+        memcpy(shared->vin + offset, message.data + 1, sz);
         data_len -= sz;
+        offset += sz;
         pattern.data[0] = 0x20 | ((pattern.data[0] + 1) & 0xF);
     }
     if (!data_len) {
@@ -170,7 +221,7 @@ static BaseType_t generic_read_continuation(int data_len) {
     return pdFALSE;
 }
 
-static BaseType_t read_vin_09(void) {
+static BaseType_t read_vin_09(struct shared_data* shared) {
     // request is 09 02
     // response is 49 02 01 31 32 33 34 ...
     ESP_LOGI(tag, "reading VIN with service 09");
@@ -191,11 +242,11 @@ static BaseType_t read_vin_09(void) {
         };
         if (generic_match(&ff_pattern, 5)) {
             ESP_LOGI(tag, "successful response");
-            memcpy(vin, message.data + 5, 3);
+            memcpy(shared->vin, message.data + 5, 3);
             debug_log_message("transmit", &generic_continuation);
             if (can_transmit(&generic_continuation)) {
                 ESP_LOGI(tag, "sent continuation");
-                return generic_read_continuation(14);
+                return generic_read_continuation(shared, 14);
             }
             ESP_LOGE(tag, "failed to send continuation");
             return pdFALSE;
@@ -207,7 +258,7 @@ static BaseType_t read_vin_09(void) {
     return pdFALSE;
 }
 
-static BaseType_t read_vin_22(void) {
+static BaseType_t read_vin_22(struct shared_data* shared) {
     // request is 22 F1 90
     // response is 62 F1 90 31 32 33 34 ...
     ESP_LOGI(tag, "reading VIN with service 22");
@@ -228,11 +279,11 @@ static BaseType_t read_vin_22(void) {
         };
         if (generic_match(&ff_pattern, 5)) {
             ESP_LOGI(tag, "successful response");
-            memcpy(vin, message.data + 5, 3);
+            memcpy(shared->vin, message.data + 5, 3);
             debug_log_message("transmit", &generic_continuation);
             if (can_transmit(&generic_continuation)) {
                 ESP_LOGI(tag, "sent continuation");
-                return generic_read_continuation(14);
+                return generic_read_continuation(shared, 14);
             }
             ESP_LOGE(tag, "failed to send continuation");
             return pdFALSE;
@@ -244,9 +295,9 @@ static BaseType_t read_vin_22(void) {
     return pdFALSE;
 }
 
-static BaseType_t read_vin_1a(void) {
+static BaseType_t read_vin_1a(struct shared_data* shared) {
     // request is 1A 90
-    // response is 5A 31 32 33 34 ...
+    // response is 5A 90 31 32 33 34 ...
     ESP_LOGI(tag, "reading VIN with service 1A");
     twai_clear_receive_queue();
     twai_clear_transmit_queue();
@@ -261,15 +312,15 @@ static BaseType_t read_vin_1a(void) {
         static const twai_message_t ff_pattern = {
             .identifier = 0x7e8,
             .data_length_code = 8,
-            .data = { 0x10, 0x12, 0x5a },
+            .data = { 0x10, 0x12, 0x5a, 0x90 },
         };
-        if (generic_match(&ff_pattern, 3)) {
+        if (generic_match(&ff_pattern, 4)) {
             ESP_LOGI(tag, "successful response");
-            memcpy(vin, message.data + 3, 5);
+            memcpy(shared->vin, message.data + 4, 4);
             debug_log_message("transmit", &generic_continuation);
             if (can_transmit(&generic_continuation)) {
                 ESP_LOGI(tag, "sent continuation");
-                return generic_read_continuation(12);
+                return generic_read_continuation(shared, 13);
             }
             ESP_LOGE(tag, "failed to send continuation");
             return pdFALSE;
@@ -283,28 +334,29 @@ static BaseType_t read_vin_1a(void) {
 
 static void try_read_vin(void* arg) {
     ESP_LOGI(tag, "try_read_vin task entered");
-    SemaphoreHandle_t local = (SemaphoreHandle_t)arg;
-    BaseType_t bt = xSemaphoreTake(semaphore, portMAX_DELAY);
+    struct shared_data* shared = (struct shared_data*)arg;
+    BaseType_t bt = xSemaphoreTake(shared->semaphore, portMAX_DELAY);
     assert(bt == pdTRUE);
     ESP_LOGI(tag, "mutex taken");
 
     for (;;) {
-        if (read_vin_09() == pdTRUE) {
+        if (read_vin_09(shared) == pdTRUE) {
             break;
         }
-        if (read_vin_22() == pdTRUE) {
+        if (read_vin_22(shared) == pdTRUE) {
             break;
         }
-        if (read_vin_1a() == pdTRUE) {
+        if (read_vin_1a(shared) == pdTRUE) {
             break;
         }
         ESP_LOGE(tag, "failed to read VIN, trying again in 3 seconds");
         vTaskDelay(pdMS_TO_TICKS(3000));
     }
 
-    xSemaphoreGive(semaphore);
+    xSemaphoreGive(shared->semaphore);
     ESP_LOGI(tag, "mutex given");
     ESP_LOGI(tag, "try_read_vin task finished");
+    debug_log_vin("vin", shared->vin);
     vTaskDelete(NULL);
     ESP_LOGE(tag, "task failed to delete!");
     assert(0);
@@ -333,10 +385,10 @@ void omni_hello_main(void) {
     }
 
     static StaticSemaphore_t semaphoreBuffer;
-    semaphore = xSemaphoreCreateMutexStatic(&semaphoreBuffer);
-    assert(semaphore);
+    shared_data.semaphore = xSemaphoreCreateMutexStatic(&semaphoreBuffer);
+    assert(shared_data.semaphore);
 
-    static StackType_t stackBuffer[2048];
+    static StackType_t stackBuffer[4096];
     static StaticTask_t taskBuffer;
-    (void)xTaskCreateStatic(try_read_vin, "try_read_vin", sizeof(stackBuffer) / sizeof(*stackBuffer), semaphore, 5, stackBuffer, &taskBuffer);
+    (void)xTaskCreateStatic(try_read_vin, "try_read_vin", sizeof(stackBuffer) / sizeof(*stackBuffer), &shared_data, 5, stackBuffer, &taskBuffer);
 }
