@@ -104,15 +104,9 @@ const struct ble_gatt_svc_def omni_hello_gatt_svr_svcs[] = {
 
 #endif
 
-static twai_message_t message = { 0 };
-
-static twai_message_t generic_continuation = {
-    .identifier = 0x7e0,
-    .data_length_code = 8,
-    .data = { 0x30, 0x00, 0x00, 0xcc, 0xcc, 0xcc, 0xcc, 0xcc },
-};
-
 static void debug_log_message(const char* text, const twai_message_t* message) {
+    assert(text);
+    assert(message);
     ESP_LOGD(
         tag,
         "%s: { .identifier = 0x%08lx, .data_length_code = %d, .flags = 0x%08lx, .data = {0x%02x, 0x%02x, 0x%02x, 0x%02x, 0x%02x, 0x%02x, 0x%02x, 0x%02x} }",
@@ -130,7 +124,17 @@ static void debug_log_message(const char* text, const twai_message_t* message) {
         message->data[7]);
 }
 
+static twai_message_t message = { 0 };
+
+static twai_message_t generic_continuation = {
+    .identifier = 0x7e0,
+    .data_length_code = 8,
+    .data = { 0x30, 0x00, 0x00, 0xcc, 0xcc, 0xcc, 0xcc, 0xcc },
+};
+
 static void debug_log_vin(const char* text, const char* vin) {
+    assert(text);
+    assert(vin);
     ESP_LOGD(
         tag,
         "%s: { .hex = {0x%02x, 0x%02x, 0x%02x, 0x%02x, 0x%02x, 0x%02x, 0x%02x, 0x%02x, 0x%02x, 0x%02x, 0x%02x, 0x%02x, 0x%02x, 0x%02x, 0x%02x, 0x%02x, 0x%02x}, .text = \"%c%c%c%c%c%c%c%c%c%c%c%c%c%c%c%c%c\"}",
@@ -175,6 +179,8 @@ static void debug_log_vin(const char* text, const char* vin) {
 #define can_transmit(message) (twai_transmit(message, pdMS_TO_TICKS(1000)) == ESP_OK)
 
 static BaseType_t generic_match(const twai_message_t* pattern, int data_len) {
+    assert(pattern);
+    assert(data_len >= 0 && data_len <= 8);
     for (int i = 0; can_receive(&message) && i < 100; i++) {
         ESP_LOGI(tag, "received CAN frame");
         debug_log_message("receive", &message);
@@ -197,6 +203,8 @@ static BaseType_t generic_match(const twai_message_t* pattern, int data_len) {
 }
 
 static BaseType_t generic_read_continuation(struct shared_data* shared, int data_len) {
+    assert(shared);
+    assert(data_len >= 0 && data_len <= 17);
     static twai_message_t pattern = {
         .identifier = 0x7e8,
         .data_length_code = 8,
@@ -224,6 +232,7 @@ static BaseType_t generic_read_continuation(struct shared_data* shared, int data
 static BaseType_t read_vin_09(struct shared_data* shared) {
     // request is 09 02
     // response is 49 02 01 31 32 33 34 ...
+    assert(shared);
     ESP_LOGI(tag, "reading VIN with service 09");
     twai_clear_receive_queue();
     twai_clear_transmit_queue();
@@ -261,6 +270,7 @@ static BaseType_t read_vin_09(struct shared_data* shared) {
 static BaseType_t read_vin_22(struct shared_data* shared) {
     // request is 22 F1 90
     // response is 62 F1 90 31 32 33 34 ...
+    assert(shared);
     ESP_LOGI(tag, "reading VIN with service 22");
     twai_clear_receive_queue();
     twai_clear_transmit_queue();
@@ -298,6 +308,7 @@ static BaseType_t read_vin_22(struct shared_data* shared) {
 static BaseType_t read_vin_1a(struct shared_data* shared) {
     // request is 1A 90
     // response is 5A 90 31 32 33 34 ...
+    assert(shared);
     ESP_LOGI(tag, "reading VIN with service 1A");
     twai_clear_receive_queue();
     twai_clear_transmit_queue();
@@ -333,6 +344,7 @@ static BaseType_t read_vin_1a(struct shared_data* shared) {
 }
 
 static void try_read_vin(void* arg) {
+    assert(arg);
     ESP_LOGI(tag, "try_read_vin task entered");
     struct shared_data* shared = (struct shared_data*)arg;
     BaseType_t bt = xSemaphoreTake(shared->semaphore, portMAX_DELAY);

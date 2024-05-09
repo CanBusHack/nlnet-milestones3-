@@ -19,18 +19,6 @@
 
 static const char tag[] = "omnitrix";
 
-#ifdef CONFIG_OMNITRIX_ENABLE_BLE
-static const struct ble_gatt_svc_def* gatt_svr_svcs[] = {
-#ifdef CONFIG_OMNITRIX_ENABLE_OTA
-    omni_ota_gatt_svr_svcs,
-#endif
-#ifdef CONFIG_OMNITRIX_ENABLE_HELLO
-    omni_hello_gatt_svr_svcs,
-#endif
-    NULL,
-};
-#endif
-
 /**
  * Even if we're not including the OTA component, this firmware may have
  * been installed via OTA. In that case, we will need to finalize or
@@ -63,6 +51,15 @@ void app_main(void) {
     handle_ota_boot();
 
 #ifdef CONFIG_OMNITRIX_ENABLE_BLE
+    static const struct ble_gatt_svc_def* gatt_svr_svcs[] = {
+#ifdef CONFIG_OMNITRIX_ENABLE_OTA
+        omni_ota_gatt_svr_svcs,
+#endif
+#ifdef CONFIG_OMNITRIX_ENABLE_HELLO
+        omni_hello_gatt_svr_svcs,
+#endif
+        NULL,
+    };
     ESP_LOGI(tag, "starting BLE");
     omni_ble_main(gatt_svr_svcs);
 #endif

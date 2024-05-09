@@ -59,7 +59,7 @@ static uint8_t own_addr_type = BLE_OWN_ADDR_PUBLIC;
 static int omni_ble_gap_event_cb(struct ble_gap_event* event, void* arg);
 
 /** Start advertising */
-static void omni_ble_advertise() {
+static void omni_ble_advertise(void) {
     const char* name = ble_svc_gap_device_name();
     struct ble_hs_adv_fields fields = {
         .flags = BLE_HS_ADV_F_DISC_GEN | BLE_HS_ADV_F_BREDR_UNSUP,
@@ -94,6 +94,7 @@ static void omni_ble_advertise() {
 
 /** BLE GAP event callback */
 static int omni_ble_gap_event_cb(struct ble_gap_event* event, void* arg) {
+    assert(event);
     switch (event->type) {
     case BLE_GAP_EVENT_CONNECT:
         ESP_LOGI(tag, "connection %s: %d", event->connect.status == 0 ? "established" : "failed", event->connect.status);
@@ -165,6 +166,7 @@ static void omni_ble_on_sync(void) {
 
 /** BLE GATT registration callback */
 void omni_ble_gatts_register_cb(struct ble_gatt_register_ctxt* ctxt, void* arg) {
+    assert(ctxt);
     char buf[BLE_UUID_STR_LEN];
 
     switch (ctxt->op) {
@@ -196,6 +198,7 @@ static void omni_ble_host_task(void* param) {
 
 /** Initialize BLE */
 void omni_ble_main(const struct ble_gatt_svc_def* const* args) {
+    assert(args);
     omni_libnvs_main();
     esp_err_t ret = nimble_port_init();
     if (ret != ESP_OK) {
