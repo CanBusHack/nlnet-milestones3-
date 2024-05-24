@@ -1,9 +1,10 @@
 #include <nvs.h>
 #include <nvs_flash.h>
+#include <stdbool.h>
 
 #include <omnitrix/libnvs.h>
 
-static int initialized = 0;
+static bool initialized = false;
 
 void omni_libnvs_main(void) {
     if (!initialized) {
@@ -13,6 +14,6 @@ void omni_libnvs_main(void) {
             ret = nvs_flash_init();
         }
         ESP_ERROR_CHECK(ret);
-        initialized = 1;
+        initialized = true;
     }
 }
