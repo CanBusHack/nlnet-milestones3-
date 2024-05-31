@@ -1,6 +1,7 @@
 #include <assert.h>
 #include <esp_err.h>
 #include <esp_log.h>
+#include <stddef.h>
 #include <stdint.h>
 
 #include <esp_flash_partitions.h>

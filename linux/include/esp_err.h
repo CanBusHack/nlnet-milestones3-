@@ -4,7 +4,8 @@
 typedef int esp_err_t;
 
 enum {
-    ESP_OK
+    ESP_OK,
+    ESP_ERR_INVALID_ARG,
 };
 
 #endif
