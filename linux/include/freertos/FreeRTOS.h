@@ -12,7 +12,7 @@ typedef unsigned char StackType_t;
 typedef unsigned char StaticTask_t;
 typedef void* TaskHandle_t;
 
-BaseType_t xTaskCreateStatic(TaskFunction_t pvTaskCode, const char *const pcName, const uint32_t ulStackDepth, void *const pvParameters, UBaseType_t uxPriority, StackType_t *const puxStackBuffer, StaticTask_t *const pxTaskBuffer);
+BaseType_t xTaskCreateStatic(TaskFunction_t pvTaskCode, const char* const pcName, const uint32_t ulStackDepth, void* const pvParameters, UBaseType_t uxPriority, StackType_t* const puxStackBuffer, StaticTask_t* const pxTaskBuffer);
 void vTaskDelete(TaskHandle_t xTaskToDelete);
 void vTaskDelay(TickType_t delay);
 

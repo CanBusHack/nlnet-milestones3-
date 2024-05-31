@@ -20,9 +20,9 @@ void esp_ota_mark_app_valid_cancel_rollback(void);
 typedef void* esp_ota_handle_t;
 
 esp_err_t esp_ota_end(esp_ota_handle_t handle);
-esp_err_t esp_ota_write_with_offset(esp_ota_handle_t handle, const void *data, size_t size, uint32_t offset);
+esp_err_t esp_ota_write_with_offset(esp_ota_handle_t handle, const void* data, size_t size, uint32_t offset);
 esp_err_t esp_ota_abort(esp_ota_handle_t handle);
-esp_err_t esp_ota_begin(const esp_partition_t *partition, size_t image_size, esp_ota_handle_t *out_handle);
+esp_err_t esp_ota_begin(const esp_partition_t* partition, size_t image_size, esp_ota_handle_t* out_handle);
 
 enum {
     OTA_SIZE_UNKNOWN

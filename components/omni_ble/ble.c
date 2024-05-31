@@ -30,6 +30,7 @@
 #include <esp_err.h>
 #include <esp_log.h>
 #include <stdint.h>
+#include <string.h>
 
 #include <host/ble_gap.h>
 #include <host/ble_gatt.h>

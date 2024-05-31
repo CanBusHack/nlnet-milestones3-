@@ -7,6 +7,7 @@ if("${IDF_TARGET}" STREQUAL linux)
   include_directories(linux/include)
   set(CMAKE_C_COMPILER gcc)
   set(EXTRA_COMPONENT_DIRS linux/components)
+  add_link_options(-fsanitize=undefined)
 endif()
 
 include($ENV{IDF_PATH}/tools/cmake/project.cmake)
