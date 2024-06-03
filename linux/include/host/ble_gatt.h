@@ -32,4 +32,11 @@ enum {
     BLE_GATT_REGISTER_OP_DSC,
 };
 
+struct ble_gatt_svc_def {
+    int TODO;
+};
+
+int ble_gatts_count_cfg(const struct ble_gatt_svc_def* defs);
+int ble_gatts_add_svcs(const struct ble_gatt_svc_def* defs);
+
 #endif
