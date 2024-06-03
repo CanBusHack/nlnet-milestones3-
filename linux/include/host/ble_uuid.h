@@ -9,10 +9,21 @@ enum {
 };
 
 typedef struct {
+    int u;
     uint16_t value;
 } ble_uuid16_t;
 
-ble_uuid16_t BLE_UUID16_INIT(uint16_t value);
+typedef struct {
+    int u;
+    uint8_t value[16];
+} ble_uuid128_t;
+
+#define BLE_UUID16_INIT(v) \
+    { .value = v }
+#define BLE_UUID128_INIT(...)    \
+    {                            \
+        .value = { __VA_ARGS__ } \
+    }
 
 const char* ble_uuid_to_str(const void* uuid, char buf[BLE_UUID_STR_LEN]);
 

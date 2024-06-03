@@ -16,6 +16,7 @@
 #ifdef CONFIG_OMNITRIX_ENABLE_BLE
 #include <host/ble_att.h>
 #include <host/ble_gatt.h>
+#include <host/ble_uuid.h>
 #endif
 
 /** Logging tag (omni_ota) */
