@@ -9,13 +9,13 @@ menu "Omnitrix config"
         bool "Enable BLE component"
         default y
 
-    source "$(shell, dirname $(shell, dirname $(filename)))/components/omni_ble/Kconfig.inc"
+    source "../components/omni_ble/Kconfig.inc"
 
     menuconfig OMNITRIX_ENABLE_OTA
         bool "Enable OTA component"
         default y
 
-    source "$(shell, dirname $(shell, dirname $(filename)))/components/omni_ota/Kconfig.inc"
+    source "../components/omni_ota/Kconfig.inc"
 
     menuconfig OMNITRIX_ENABLE_HELLO
         bool "Enable Hello World component"
