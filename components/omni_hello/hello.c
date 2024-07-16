@@ -9,6 +9,7 @@
 #include <freertos/portmacro.h>
 #include <freertos/projdefs.h>
 #include <hal/twai_types.h>
+#include <host/ble_hs_mbuf.h>
 #include <host/ble_uuid.h>
 #include <os/os_mbuf.h>
 
