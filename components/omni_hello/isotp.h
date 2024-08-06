@@ -39,8 +39,8 @@ struct isotp_event {
 
 typedef void isotp_event_cb(struct isotp_event*);
 typedef void isotp_unmatched_frame(void* frame);
-typedef void isotp_write_frame(uint32_t id, uint8_t dlc, uint8_t* data);
-typedef void isotp_read_message_cb(uint8_t* data, size_t size);
+typedef void isotp_write_frame(uint32_t id, uint8_t dlc, const uint8_t* data);
+typedef void isotp_read_message_cb(const uint8_t* data, size_t size);
 
 void isotp_event_loop(isotp_event_cb* get_next_event, isotp_unmatched_frame* unmatched_frame, isotp_write_frame* write_frame, isotp_read_message_cb* read_message_cb);
 

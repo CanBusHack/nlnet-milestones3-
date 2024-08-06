@@ -26,7 +26,7 @@ static struct {
 
 static void handle_write_msg(struct isotp_event* evt, int index) {
     assert(isotp_addr_pairs.count <= ISOTP_MAX_PAIRS);
-    assert(index > 0 && index < isotp_addr_pairs.count);
+    assert(index >= 0 && index < isotp_addr_pairs.count);
     int pad_sz = 0, msg_start = 4, sf_max = 11;
     if (isotp_addr_pairs.pairs[index].txid & 0x40000000) {
         pad_sz++;
@@ -48,7 +48,7 @@ static void handle_write_msg(struct isotp_event* evt, int index) {
 
 static void handle_read_can(struct isotp_event* evt, int index, isotp_read_message_cb* read_message_cb) {
     assert(isotp_addr_pairs.count <= ISOTP_MAX_PAIRS);
-    assert(index > 0 && index < isotp_addr_pairs.count);
+    assert(index >= 0 && index < isotp_addr_pairs.count);
     size_t pci_byte = (isotp_addr_pairs.pairs[index].rxid & 0x40000000) ? 1 : 0;
     switch (evt->can.data[pci_byte] >> 4) {
     case 0:
@@ -79,6 +79,7 @@ static void handle_read_can(struct isotp_event* evt, int index, isotp_read_messa
         if (rem > 0 && (evt->can.data[pci_byte] & 0xF) == isotp_addr_pairs.pairs[index].ctr) {
             isotp_addr_pairs.pairs[index].ctr = (isotp_addr_pairs.pairs[index].ctr + 1) & 0xF;
             memcpy(isotp_addr_pairs.pairs[index].buf + offset, evt->can.data + pci_byte + 1, (max_sz < size) ? max_sz : size);
+            isotp_addr_pairs.pairs[index].offset += (max_sz < size) ? max_sz : size;
             rem -= max_sz;
             if (rem <= 0) {
                 read_message_cb(isotp_addr_pairs.pairs[index].buf, size);
@@ -135,7 +136,7 @@ void isotp_event_loop(isotp_event_cb* get_next_event, isotp_unmatched_frame* unm
                 for (int i = evt.msg.size; i < 11; i++) {
                     evt.msg.data[i] = 0xCC;
                 }
-                evt.msg.data[3] = evt.msg.size;
+                evt.msg.data[3] = evt.msg.size - 4;
                 write_frame(id, 8, evt.msg.data + 3);
             }
             break;
