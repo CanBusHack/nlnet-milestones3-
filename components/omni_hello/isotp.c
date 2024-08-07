@@ -37,13 +37,14 @@ static void handle_write_msg(struct isotp_event* evt, int index, isotp_write_fra
     }
     if (evt->msg.size <= sf_max) {
         // single frame
-        uint8_t dlc = evt->msg.size + pad_sz - 3;
+        uint8_t dlc = evt->msg.size - 3;
         if (isotp_addr_pairs.pairs[index].txid & 0x20000000) {
             dlc = 8;
             for (int i = evt->msg.size; i < sf_max; i++) {
                 evt->msg.data[i] = isotp_addr_pairs.pairs[index].txpad;
             }
         }
+        evt->msg.data[3] = isotp_addr_pairs.pairs[index].txext;
         evt->msg.data[3 + pad_sz] = evt->msg.size - msg_start;
         write_frame(isotp_addr_pairs.pairs[index].txid & 0x9FFFFFFF, dlc, evt->msg.data + 3);
     }
@@ -113,9 +114,13 @@ void isotp_event_loop(isotp_event_cb* get_next_event, isotp_unmatched_frame* unm
         get_next_event(&evt);
         switch (evt.type) {
         case EVENT_RECONFIGURE_PAIRS: {
-            // TODO: stop tasks?
+            assert(isotp_addr_pairs.count <= ISOTP_MAX_PAIRS);
+            for (int i = 0; i < isotp_addr_pairs.count; i++) {
+                memset(isotp_addr_pairs.pairs + i, 0, sizeof(isotp_addr_pairs.pairs[0]));
+            }
             assert(evt.pairs.size % 12 == 0);
             isotp_addr_pairs.count = evt.pairs.size / 12;
+            assert(isotp_addr_pairs.count <= ISOTP_MAX_PAIRS);
             for (int i = 0, j = 0; i + 11 < evt.pairs.size && j < ISOTP_MAX_PAIRS; i += 12, j++) {
                 isotp_addr_pairs.pairs[j].txid = (evt.pairs.data[i] << 24) | (evt.pairs.data[i + 1] << 16) | (evt.pairs.data[i + 2] << 8) | evt.pairs.data[i + 3];
                 isotp_addr_pairs.pairs[j].txext = evt.pairs.data[i + 4];
@@ -124,7 +129,6 @@ void isotp_event_loop(isotp_event_cb* get_next_event, isotp_unmatched_frame* unm
                 isotp_addr_pairs.pairs[j].rxext = evt.pairs.data[i + 10];
                 isotp_addr_pairs.pairs[j].rxpad = evt.pairs.data[i + 11];
             }
-            // TODO: start tasks?
             break;
         }
         case EVENT_RECONFIGURE_BS_STMIN: {
@@ -138,7 +142,11 @@ void isotp_event_loop(isotp_event_cb* get_next_event, isotp_unmatched_frame* unm
             bool matched = false;
             for (int i = 0; i < isotp_addr_pairs.count; i++) {
                 bool id_match = (id & 0x9FFFFFFF) == (isotp_addr_pairs.pairs[i].txid & 0x9FFFFFFF);
-                if (id_match) {
+                if (id_match && isotp_addr_pairs.pairs[i].txid & 0x40000000) {
+                    assert(evt.msg.size > 5);
+                }
+                bool id_ext_match = id_match && (!(isotp_addr_pairs.pairs[i].txid & 0x40000000) || (isotp_addr_pairs.pairs[i].txext == evt.msg.data[4]));
+                if (id_ext_match) {
                     matched = true;
                     handle_write_msg(&evt, i, write_frame);
                     break;

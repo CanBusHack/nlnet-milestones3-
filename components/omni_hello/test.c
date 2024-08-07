@@ -209,9 +209,159 @@ void test_send_sf_normal(void) {
     assert(read_data[7] == 0x42);
 }
 
+void test_send_sf_normal_nopad(void) {
+    uint32_t read_id = 0;
+    uint8_t read_dlc = 0;
+    uint8_t read_data[8] = { 0 };
+
+    void get_next_event(struct isotp_event* evt) {
+        static const struct isotp_event events[] = {
+            {
+                .type = EVENT_RECONFIGURE_PAIRS,
+                .pairs = {
+                    .size = 12,
+                    .data = { 0x00, 0x00, 0x07, 0xE0, 0x00, 0x42, 0x00, 0x00, 0x07, 0xE8, 0x00, 0x24 },
+                },
+            },
+            {
+                .type = EVENT_WRITE_MSG,
+                .msg = {
+                    .size = 6,
+                    .data = { 0x00, 0x00, 0x07, 0xE0, 0x09, 0x02 },
+                },
+            },
+            {
+                .type = EVENT_SHUTDOWN,
+            },
+        };
+        static int index = 0;
+        assert(index < (sizeof(events) / sizeof(events[0])));
+        memcpy(evt, &events[index++], sizeof(*evt));
+    }
+
+    void write_frame(uint32_t id, uint8_t dlc, const uint8_t* data) {
+        static int count = 0;
+        assert(count < 1);
+        count++;
+        read_id = id;
+        read_dlc = dlc;
+        memcpy(read_data, data, 8);
+    }
+
+    isotp_event_loop(get_next_event, no_unmatched_frame, write_frame, no_read_message_cb);
+    assert(read_id == 0x7E0);
+    assert(read_dlc == 3);
+    assert(read_data[0] == 2);
+    assert(read_data[1] == 9);
+    assert(read_data[2] == 2);
+}
+
+void test_send_sf_extended(void) {
+    uint32_t read_id = 0;
+    uint8_t read_dlc = 0;
+    uint8_t read_data[8] = { 0 };
+
+    void get_next_event(struct isotp_event* evt) {
+        static const struct isotp_event events[] = {
+            {
+                .type = EVENT_RECONFIGURE_PAIRS,
+                .pairs = {
+                    .size = 12,
+                    .data = { 0x60, 0x00, 0x07, 0xE0, 0x21, 0x42, 0x60, 0x00, 0x07, 0xE8, 0x12, 0x24 },
+                },
+            },
+            {
+                .type = EVENT_WRITE_MSG,
+                .msg = {
+                    .size = 7,
+                    .data = { 0x00, 0x00, 0x07, 0xE0, 0x21, 0x09, 0x02 },
+                },
+            },
+            {
+                .type = EVENT_SHUTDOWN,
+            },
+        };
+        static int index = 0;
+        assert(index < (sizeof(events) / sizeof(events[0])));
+        memcpy(evt, &events[index++], sizeof(*evt));
+    }
+
+    void write_frame(uint32_t id, uint8_t dlc, const uint8_t* data) {
+        static int count = 0;
+        assert(count < 1);
+        count++;
+        read_id = id;
+        read_dlc = dlc;
+        memcpy(read_data, data, 8);
+    }
+
+    isotp_event_loop(get_next_event, no_unmatched_frame, write_frame, no_read_message_cb);
+    assert(read_id == 0x7E0);
+    assert(read_dlc == 8);
+    assert(read_data[0] == 0x21);
+    assert(read_data[1] == 2);
+    assert(read_data[2] == 9);
+    assert(read_data[3] == 2);
+    assert(read_data[4] == 0x42);
+    assert(read_data[5] == 0x42);
+    assert(read_data[6] == 0x42);
+    assert(read_data[7] == 0x42);
+}
+
+void test_send_sf_extended_nopad(void) {
+    uint32_t read_id = 0;
+    uint8_t read_dlc = 0;
+    uint8_t read_data[8] = { 0 };
+
+    void get_next_event(struct isotp_event* evt) {
+        static const struct isotp_event events[] = {
+            {
+                .type = EVENT_RECONFIGURE_PAIRS,
+                .pairs = {
+                    .size = 12,
+                    .data = { 0x40, 0x00, 0x07, 0xE0, 0x21, 0x42, 0x40, 0x00, 0x07, 0xE8, 0x12, 0x24 },
+                },
+            },
+            {
+                .type = EVENT_WRITE_MSG,
+                .msg = {
+                    .size = 7,
+                    .data = { 0x00, 0x00, 0x07, 0xE0, 0x21, 0x09, 0x02 },
+                },
+            },
+            {
+                .type = EVENT_SHUTDOWN,
+            },
+        };
+        static int index = 0;
+        assert(index < (sizeof(events) / sizeof(events[0])));
+        memcpy(evt, &events[index++], sizeof(*evt));
+    }
+
+    void write_frame(uint32_t id, uint8_t dlc, const uint8_t* data) {
+        static int count = 0;
+        assert(count < 1);
+        count++;
+        read_id = id;
+        read_dlc = dlc;
+        memcpy(read_data, data, 8);
+    }
+
+    isotp_event_loop(get_next_event, no_unmatched_frame, write_frame, no_read_message_cb);
+    assert(read_id == 0x7E0);
+    assert(read_dlc == 4);
+    assert(read_data[0] == 0x21);
+    assert(read_data[1] == 2);
+    assert(read_data[2] == 9);
+    assert(read_data[3] == 2);
+}
+
 int main(int argc, char** argv) {
     test_send_sf_no_configure();
     test_read_unmatched();
     test_read_multi();
     test_send_sf_normal();
+    test_send_sf_normal_nopad();
+    test_send_sf_extended();
+    test_send_sf_extended_nopad();
 }
