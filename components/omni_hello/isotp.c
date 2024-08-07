@@ -51,7 +51,30 @@ static void handle_write_msg(struct isotp_event* evt, int index, isotp_write_fra
     // TODO: the rest of the owl
 }
 
-static void handle_read_can(struct isotp_event* evt, int index, isotp_read_message_cb* read_message_cb) {
+static void send_flow_control(int index, isotp_write_frame* write_frame) {
+    int start = 1;
+    uint8_t dlc = 3;
+    uint8_t buf[9];
+    buf[0] = isotp_addr_pairs.pairs[index].txext;
+    buf[1] = 0x30;
+    buf[2] = isotp_addr_pairs.bs;
+    buf[3] = isotp_addr_pairs.stmin;
+    buf[4] = isotp_addr_pairs.pairs[index].txpad;
+    buf[5] = isotp_addr_pairs.pairs[index].txpad;
+    buf[6] = isotp_addr_pairs.pairs[index].txpad;
+    buf[7] = isotp_addr_pairs.pairs[index].txpad;
+    buf[8] = isotp_addr_pairs.pairs[index].txpad;
+    if (isotp_addr_pairs.pairs[index].txid & 0x40000000) {
+        start = 0;
+        dlc = 4;
+    }
+    if (isotp_addr_pairs.pairs[index].txid & 0x20000000) {
+        dlc = 8;
+    }
+    write_frame(isotp_addr_pairs.pairs[index].txid & 0x9FFFFFFF, dlc, buf + start);
+}
+
+static void handle_read_can(struct isotp_event* evt, int index, isotp_write_frame* write_frame, isotp_read_message_cb* read_message_cb) {
     assert(evt);
     assert(isotp_addr_pairs.count <= ISOTP_MAX_PAIRS);
     assert(index >= 0 && index < isotp_addr_pairs.count);
@@ -76,7 +99,7 @@ static void handle_read_can(struct isotp_event* evt, int index, isotp_read_messa
             isotp_addr_pairs.pairs[index].buf[3] = evt->can.id;
             isotp_addr_pairs.pairs[index].buf[4] = evt->can.data[0];
             memcpy(isotp_addr_pairs.pairs[index].buf + 4 + pci_byte, evt->can.data + pci_byte + 2, 6 - pci_byte);
-            // TODO: send out flow control
+            send_flow_control(index, write_frame);
         }
         break;
     case 2: {
@@ -169,7 +192,7 @@ void isotp_event_loop(isotp_event_cb* get_next_event, isotp_unmatched_frame* unm
                 bool id_ext_match = id_match && (!(isotp_addr_pairs.pairs[i].rxid & 0x40000000) || (isotp_addr_pairs.pairs[i].rxext == evt.can.data[0]));
                 if (id_ext_match) {
                     matched = true;
-                    handle_read_can(&evt, i, read_message_cb);
+                    handle_read_can(&evt, i, write_frame, read_message_cb);
                     break;
                 }
             }

@@ -144,13 +144,32 @@ static void test_read_multi(void) {
         memcpy(evt, &events[index++], sizeof(*evt));
     }
 
+    void write_frame(uint32_t id, uint8_t dlc, const uint8_t* data) {
+        static int count = 0;
+        assert(count < 1);
+        count++;
+        assert(id == 0x7E0);
+        assert(dlc == 8);
+        assert(data[0] == 0x30);
+        assert(data[1] == 0);
+        assert(data[2] == 0);
+        assert(data[3] == 0xCC);
+        assert(data[4] == 0xCC);
+        assert(data[5] == 0xCC);
+        assert(data[6] == 0xCC);
+        assert(data[7] == 0xCC);
+    }
+
     void read_message_cb(const uint8_t* data, size_t size) {
+        static int count = 0;
+        assert(count < 1);
+        count++;
         assert(size <= 256);
         memcpy(read_data, data, size);
         read_size = size;
     }
 
-    isotp_event_loop(get_next_event, no_unmatched_frame, no_write_frame, read_message_cb);
+    isotp_event_loop(get_next_event, no_unmatched_frame, write_frame, read_message_cb);
     assert(read_size == 24);
     uint8_t expected_data[] = "\x00\x00\x07\xE8\x49\x02\x01"
                               "ABCDEFGHIJKLMNOPQ";
