@@ -4,6 +4,18 @@
 
 #include "isotp.h"
 
+static void no_unmatched_frame(void* frame) {
+    assert(0);
+}
+
+static void no_write_frame(uint32_t id, uint8_t dlc, const uint8_t* data) {
+    assert(0);
+}
+
+static void no_read_message_cb(const uint8_t* data, size_t size) {
+    assert(0);
+}
+
 static void test_send_sf_no_configure(void) {
     uint32_t read_id = 0;
     uint8_t read_dlc = 0;
@@ -15,7 +27,7 @@ static void test_send_sf_no_configure(void) {
                 .type = EVENT_WRITE_MSG,
                 .msg = {
                     .size = 6,
-                    .data = { 0x00, 0x00, 0x07, 0xdf, 0x09, 0x02 },
+                    .data = { 0x00, 0x00, 0x07, 0xDF, 0x09, 0x02 },
                 },
             },
             {
@@ -36,8 +48,8 @@ static void test_send_sf_no_configure(void) {
         memcpy(read_data, data, 8);
     }
 
-    isotp_event_loop(get_next_event, NULL, write_frame, NULL);
-    assert(read_id == 0x7df);
+    isotp_event_loop(get_next_event, no_unmatched_frame, write_frame, no_read_message_cb);
+    assert(read_id == 0x7DF);
     assert(read_dlc == 8);
     assert(read_data[0] == 2);
     assert(read_data[1] == 9);
@@ -79,7 +91,7 @@ static void test_read_unmatched(void) {
         read_frame = (uintptr_t)frame;
     }
 
-    isotp_event_loop(get_next_event, unmatched_frame, NULL, NULL);
+    isotp_event_loop(get_next_event, unmatched_frame, no_write_frame, no_read_message_cb);
     assert(read_frame == 0xDEADBEEF);
 }
 
@@ -138,15 +150,68 @@ static void test_read_multi(void) {
         read_size = size;
     }
 
-    isotp_event_loop(get_next_event, NULL, NULL, read_message_cb);
+    isotp_event_loop(get_next_event, no_unmatched_frame, no_write_frame, read_message_cb);
     assert(read_size == 24);
     uint8_t expected_data[] = "\x00\x00\x07\xE8\x49\x02\x01"
                               "ABCDEFGHIJKLMNOPQ";
     assert(!memcmp(read_data, expected_data, 24));
 }
 
+void test_send_sf_normal(void) {
+    uint32_t read_id = 0;
+    uint8_t read_dlc = 0;
+    uint8_t read_data[8] = { 0 };
+
+    void get_next_event(struct isotp_event* evt) {
+        static const struct isotp_event events[] = {
+            {
+                .type = EVENT_RECONFIGURE_PAIRS,
+                .pairs = {
+                    .size = 12,
+                    .data = { 0x20, 0x00, 0x07, 0xE0, 0x00, 0x42, 0x20, 0x00, 0x07, 0xE8, 0x00, 0x24 },
+                },
+            },
+            {
+                .type = EVENT_WRITE_MSG,
+                .msg = {
+                    .size = 6,
+                    .data = { 0x00, 0x00, 0x07, 0xE0, 0x09, 0x02 },
+                },
+            },
+            {
+                .type = EVENT_SHUTDOWN,
+            },
+        };
+        static int index = 0;
+        assert(index < (sizeof(events) / sizeof(events[0])));
+        memcpy(evt, &events[index++], sizeof(*evt));
+    }
+
+    void write_frame(uint32_t id, uint8_t dlc, const uint8_t* data) {
+        static int count = 0;
+        assert(count < 1);
+        count++;
+        read_id = id;
+        read_dlc = dlc;
+        memcpy(read_data, data, 8);
+    }
+
+    isotp_event_loop(get_next_event, no_unmatched_frame, write_frame, no_read_message_cb);
+    assert(read_id == 0x7E0);
+    assert(read_dlc == 8);
+    assert(read_data[0] == 2);
+    assert(read_data[1] == 9);
+    assert(read_data[2] == 2);
+    assert(read_data[3] == 0x42);
+    assert(read_data[4] == 0x42);
+    assert(read_data[5] == 0x42);
+    assert(read_data[6] == 0x42);
+    assert(read_data[7] == 0x42);
+}
+
 int main(int argc, char** argv) {
     test_send_sf_no_configure();
     test_read_unmatched();
     test_read_multi();
+    test_send_sf_normal();
 }

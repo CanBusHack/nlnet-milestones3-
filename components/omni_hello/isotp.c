@@ -24,9 +24,11 @@ static struct {
     uint8_t stmin;
 } isotp_addr_pairs = { 0 };
 
-static void handle_write_msg(struct isotp_event* evt, int index) {
+static void handle_write_msg(struct isotp_event* evt, int index, isotp_write_frame* write_frame) {
+    assert(evt);
     assert(isotp_addr_pairs.count <= ISOTP_MAX_PAIRS);
     assert(index >= 0 && index < isotp_addr_pairs.count);
+
     int pad_sz = 0, msg_start = 4, sf_max = 11;
     if (isotp_addr_pairs.pairs[index].txid & 0x40000000) {
         pad_sz++;
@@ -35,20 +37,25 @@ static void handle_write_msg(struct isotp_event* evt, int index) {
     }
     if (evt->msg.size <= sf_max) {
         // single frame
-        uint8_t dlc = evt->msg.size - 3;
+        uint8_t dlc = evt->msg.size + pad_sz - 3;
         if (isotp_addr_pairs.pairs[index].txid & 0x20000000) {
             dlc = 8;
             for (int i = evt->msg.size; i < sf_max; i++) {
                 evt->msg.data[i] = isotp_addr_pairs.pairs[index].txpad;
             }
         }
+        evt->msg.data[3 + pad_sz] = evt->msg.size - msg_start;
+        write_frame(isotp_addr_pairs.pairs[index].txid & 0x9FFFFFFF, dlc, evt->msg.data + 3);
     }
     // TODO: the rest of the owl
 }
 
 static void handle_read_can(struct isotp_event* evt, int index, isotp_read_message_cb* read_message_cb) {
+    assert(evt);
     assert(isotp_addr_pairs.count <= ISOTP_MAX_PAIRS);
     assert(index >= 0 && index < isotp_addr_pairs.count);
+    assert(read_message_cb);
+
     size_t pci_byte = (isotp_addr_pairs.pairs[index].rxid & 0x40000000) ? 1 : 0;
     switch (evt->can.data[pci_byte] >> 4) {
     case 0:
@@ -95,7 +102,13 @@ static void handle_read_can(struct isotp_event* evt, int index, isotp_read_messa
 }
 
 void isotp_event_loop(isotp_event_cb* get_next_event, isotp_unmatched_frame* unmatched_frame, isotp_write_frame* write_frame, isotp_read_message_cb* read_message_cb) {
+    assert(get_next_event);
+    assert(unmatched_frame);
+    assert(write_frame);
+    assert(read_message_cb);
+
     struct isotp_event evt;
+
     for (;;) {
         get_next_event(&evt);
         switch (evt.type) {
@@ -124,10 +137,10 @@ void isotp_event_loop(isotp_event_cb* get_next_event, isotp_unmatched_frame* unm
             uint32_t id = (evt.msg.data[0] << 24) | (evt.msg.data[1] << 16) | (evt.msg.data[2] << 8) | evt.msg.data[3];
             bool matched = false;
             for (int i = 0; i < isotp_addr_pairs.count; i++) {
-                bool id_match = (id & 0x9FFFFFFF) == (isotp_addr_pairs.pairs[i].rxid & 0x9FFFFFFF);
+                bool id_match = (id & 0x9FFFFFFF) == (isotp_addr_pairs.pairs[i].txid & 0x9FFFFFFF);
                 if (id_match) {
                     matched = true;
-                    handle_write_msg(&evt, i);
+                    handle_write_msg(&evt, i, write_frame);
                     break;
                 }
             }
