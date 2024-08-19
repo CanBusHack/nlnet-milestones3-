@@ -2,6 +2,8 @@
 #include <esp_err.h>
 #include <esp_log.h>
 #include <stdint.h>
+#include <stdbool.h>
+#include <string.h>
 
 #include <driver/gpio.h>
 #include <driver/twai.h>
@@ -21,18 +23,84 @@
 #include <host/ble_gatt.h>
 #endif
 
+#include "isotp.h"
+
 static const char tag[] = "omni_hello";
+
+static StackType_t isotp_task_stack[4096];
+static StaticTask_t isotp_task_buffer;
+static TaskHandle_t isotp_task_handle;
+
+static uint8_t isotp_event_queue_storage[sizeof(struct isotp_event) * 4];
+static StaticQueue_t isotp_event_queue_buffer;
+static QueueHandle_t isotp_event_queue_handle;
+
+static uint8_t isotp_unmatched_frame_queue_storage[sizeof(twai_message_t) * 4];
+static StaticQueue_t isotp_unmatched_frame_queue_buffer;
+static QueueHandle_t isotp_unmatched_frame_queue_handle;
+
+struct isotp_msg { size_t size; uint8_t data[256]; };
+static uint8_t isotp_msg_queue_storage[sizeof(struct isotp_msg) * 4];
+static StaticQueue_t isotp_msg_queue_buffer;
+static QueueHandle_t isotp_msg_queue_handle;
+
+static void get_next_event(struct isotp_event* evt) {
+    assert(evt);
+    BaseType_t ret = xQueueReceive(isotp_event_queue_handle, evt, portMAX_DELAY);
+    assert(ret == pdTRUE);
+}
+
+static void unmatched_frame(void* frame) {
+    assert(frame);
+    // NOTE: if this queue is full the frame will be dropped!
+    xQueueSend(isotp_unmatched_frame_queue_handle, frame, 0);
+}
+
+static void write_frame(uint32_t id, uint8_t dlc, const uint8_t* data) {
+    assert(data);
+    twai_message_t msg = {
+        .extd = (id & 0x80000000) != 0,
+        .identifier = id & 0x1FFFFFFF,
+        .data_length_code = dlc,
+    };
+    memcpy(msg.data, data, (dlc > 8) ? 8 : dlc);
+    // NOTE: if the TX queue is full the frame will be dropped!
+    twai_transmit(&msg, 0);
+}
+
+static void read_message_cb(const uint8_t* data, size_t size) {
+    assert(data);
+    assert(size <= 256);
+    struct isotp_msg msg = {
+        .size = size,
+    };
+    memcpy(msg.data, data, size);
+    // NOTE: if this queue is full the message will be dropped!
+    xQueueSend(isotp_msg_queue_handle, &msg, 0);
+}
+
+static void isotp_task(void* ptr) {
+    isotp_event_loop(get_next_event, unmatched_frame, write_frame, read_message_cb);
+    vTaskDelete(NULL);
+}
 
 #ifdef CONFIG_OMNITRIX_ENABLE_BLE
 static const ble_uuid128_t gatt_svr_svc_uuid = BLE_UUID128_INIT(0x46, 0x9a, 0x1b, 0xa2, 0xe8, 0xb6, 0xf6, 0x93, 0x33, 0x43, 0x3d, 0x4e, 0xa8, 0x1b, 0x94, 0x49);
 static const ble_uuid128_t gatt_svr_chr_hello_uuid = BLE_UUID128_INIT(0x5b, 0x36, 0x94, 0x23, 0x4e, 0xae, 0x48, 0x9f, 0xe9, 0x43, 0x52, 0xca, 0x7a, 0xf3, 0xce, 0x4c);
 static const ble_uuid128_t gatt_svr_chr_vin_uuid = BLE_UUID128_INIT(0xb4, 0x8f, 0xd5, 0xba, 0x66, 0x75, 0x3b, 0x90, 0xb1, 0x4c, 0xec, 0x9b, 0x43, 0x07, 0xf7, 0x83);
 static const ble_uuid128_t gatt_svr_chr_can_uuid = BLE_UUID128_INIT(0x43, 0x17, 0x96, 0x20, 0x7c, 0xf2, 0x2c, 0x90, 0xce, 0x4b, 0xb0, 0x8a, 0x25, 0x9b, 0x59, 0x0b);
+static const ble_uuid128_t gatt_svr_chr_isotp_pairs_uuid = BLE_UUID128_INIT(0x39, 0x9d, 0x8e, 0x6a, 0x12, 0x6e, 0x8b, 0xb1, 0x57, 0x4d, 0xd7, 0xdf, 0x1d, 0x80, 0x31, 0x7e);
+static const ble_uuid128_t gatt_svr_chr_isotp_bs_stmin_uuid = BLE_UUID128_INIT(0xfc, 0xe2, 0x52, 0x84, 0xed, 0x1d, 0x22, 0x8d, 0xb4, 0x4e, 0xdb, 0x76, 0xfa, 0x17, 0x49, 0x27);
+static const ble_uuid128_t gatt_svr_chr_isotp_msg_uuid = BLE_UUID128_INIT(0xfc, 0xe2, 0x52, 0x84, 0xed, 0x1d, 0x22, 0x8d, 0xb4, 0x4e, 0xdb, 0x76, 0xfa, 0x17, 0x49, 0x27);
 static uint16_t gatt_svr_chr_hello_val_handle;
 static uint16_t gatt_svr_chr_vin_val_handle;
 static uint16_t gatt_svr_chr_can_val_handle;
+static uint16_t gatt_svr_chr_isotp_pairs_val_handle;
+static uint16_t gatt_svr_chr_isotp_bs_stmin_val_handle;
+static uint16_t gatt_svr_chr_isotp_msg_val_handle;
 
 static int gatt_svc_access(uint16_t conn_handle, uint16_t attr_handle, struct ble_gatt_access_ctxt* ctxt, void* arg) {
+    static struct isotp_event event;
     switch (ctxt->op) {
     case BLE_GATT_ACCESS_OP_READ_CHR:
         if (attr_handle == gatt_svr_chr_hello_val_handle) {
@@ -55,12 +123,24 @@ static int gatt_svc_access(uint16_t conn_handle, uint16_t attr_handle, struct bl
         if (attr_handle == gatt_svr_chr_can_val_handle) {
             ESP_LOGI(tag, "read can characteristic");
             static twai_message_t message;
-            if (twai_receive(&message, 0) == ESP_OK) {
+            if (xQueueReceive(isotp_unmatched_frame_queue_handle, &message, 0) == pdTRUE) {
                 ESP_LOGD(tag, "can read complete");
                 int rc = os_mbuf_append(ctxt->om, &message, sizeof(message));
                 return rc == 0 ? 0 : BLE_ATT_ERR_INSUFFICIENT_RES;
             }
             ESP_LOGD(tag, "no can frames available");
+            return BLE_ATT_ERR_UNLIKELY;
+        }
+        if (attr_handle == gatt_svr_chr_isotp_msg_val_handle) {
+            ESP_LOGI(tag, "read isotp msg characteristic");
+            static struct isotp_msg message;
+            if (xQueueReceive(isotp_msg_queue_handle, &message, 0) == pdTRUE) {
+                assert(message.size <= 256);
+                ESP_LOGD(tag, "msg read complete");
+                int rc = os_mbuf_append(ctxt->om, message.data, message.size);
+                return rc == 0 ? 0 : BLE_ATT_ERR_INSUFFICIENT_RES;
+            }
+            ESP_LOGD(tag, "no msgs available");
             return BLE_ATT_ERR_UNLIKELY;
         }
         assert(0);
@@ -80,6 +160,72 @@ static int gatt_svc_access(uint16_t conn_handle, uint16_t attr_handle, struct bl
                 }
                 ESP_LOGD(tag, "write buffer full");
                 return BLE_ATT_ERR_UNLIKELY;
+            }
+            ESP_LOGD(tag, "mbuf_to_flat error");
+            return BLE_ATT_ERR_UNLIKELY;
+        }
+        if (attr_handle == gatt_svr_chr_isotp_pairs_val_handle) {
+            ESP_LOGI(tag, "write isotp pairs characteristic");
+            static unsigned char buf[252];
+            uint16_t len;
+            if (ble_hs_mbuf_to_flat(ctxt->om, &buf, sizeof(buf), &len) == 0) {
+                ESP_LOGD(tag, "mbuf_to_flat ok");
+                if (len % 12 == 0) {
+                    event.type = EVENT_RECONFIGURE_PAIRS;
+                    event.pairs.size = len;
+                    memcpy(event.pairs.data, buf, len);
+                    if (xQueueSend(isotp_event_queue_handle, &event, 0) == pdTRUE) {
+                        ESP_LOGD(tag, "queued reconfigure pairs");
+                        return 0;
+                    }
+                    ESP_LOGD(tag, "event queue error (full?)");
+                    return BLE_ATT_ERR_UNLIKELY;
+                }
+                return BLE_ATT_ERR_INVALID_ATTR_VALUE_LEN;
+            }
+            ESP_LOGD(tag, "mbuf_to_flat error");
+            return BLE_ATT_ERR_UNLIKELY;
+        }
+        if (attr_handle == gatt_svr_chr_isotp_bs_stmin_val_handle) {
+            ESP_LOGI(tag, "write isotp bs stmin characteristic");
+            static unsigned char buf[2];
+            uint16_t len;
+            if (ble_hs_mbuf_to_flat(ctxt->om, &buf, sizeof(buf), &len) == 0) {
+                ESP_LOGD(tag, "mbuf_to_flat ok");
+                if (len == 2) {
+                    event.type = EVENT_RECONFIGURE_BS_STMIN;
+                    event.bs_stmin.data[0] = buf[0];
+                    event.bs_stmin.data[1] = buf[1];
+                    if (xQueueSend(isotp_event_queue_handle, &event, 0) == pdTRUE) {
+                        ESP_LOGD(tag, "queued reconfigure bs/stmin");
+                        return 0;
+                    }
+                    ESP_LOGD(tag, "event queue error (full?)");
+                    return BLE_ATT_ERR_UNLIKELY;
+                }
+                return BLE_ATT_ERR_INVALID_ATTR_VALUE_LEN;
+            }
+            ESP_LOGD(tag, "mbuf_to_flat error");
+            return BLE_ATT_ERR_UNLIKELY;
+        }
+        if (attr_handle == gatt_svr_chr_isotp_msg_val_handle) {
+            ESP_LOGI(tag, "write isotp msg characteristic");
+            static unsigned char buf[256];
+            uint16_t len;
+            if (ble_hs_mbuf_to_flat(ctxt->om, &buf, sizeof(buf), &len) == 0) {
+                ESP_LOGD(tag, "mbuf_to_flat ok");
+                if (len >= 4) {
+                    event.type = EVENT_WRITE_MSG;
+                    event.msg.size = len;
+                    memcpy(event.msg.data, buf, len);
+                    if (xQueueSend(isotp_event_queue_handle, &event, 0) == pdTRUE) {
+                        ESP_LOGD(tag, "queued msg send");
+                        return 0;
+                    }
+                    ESP_LOGD(tag, "event queue error (full?)");
+                    return BLE_ATT_ERR_UNLIKELY;
+                }
+                return BLE_ATT_ERR_INVALID_ATTR_VALUE_LEN;
             }
             ESP_LOGD(tag, "mbuf_to_flat error");
             return BLE_ATT_ERR_UNLIKELY;
@@ -118,6 +264,24 @@ const struct ble_gatt_svc_def omni_hello_gatt_svr_svcs[] = {
                 .val_handle = &gatt_svr_chr_can_val_handle,
             },
             {
+                .uuid = &gatt_svr_chr_isotp_pairs_uuid.u,
+                .access_cb = gatt_svc_access,
+                .flags = BLE_GATT_CHR_F_WRITE,
+                .val_handle = &gatt_svr_chr_isotp_pairs_val_handle,
+            },
+            {
+                .uuid = &gatt_svr_chr_isotp_bs_stmin_uuid.u,
+                .access_cb = gatt_svc_access,
+                .flags = BLE_GATT_CHR_F_WRITE,
+                .val_handle = &gatt_svr_chr_isotp_bs_stmin_val_handle,
+            },
+            {
+                .uuid = &gatt_svr_chr_isotp_msg_uuid.u,
+                .access_cb = gatt_svc_access,
+                .flags = BLE_GATT_CHR_F_READ | BLE_GATT_CHR_F_WRITE,
+                .val_handle = &gatt_svr_chr_isotp_msg_val_handle,
+            },
+            {
                 0,
             },
         },
@@ -146,4 +310,9 @@ void omni_hello_main(void) {
     } else {
         ESP_LOGE(tag, "driver start failed");
     }
+
+    isotp_event_queue_handle = xQueueCreateStatic(4, sizeof(struct isotp_event), isotp_event_queue_storage, &isotp_event_queue_buffer);
+    isotp_unmatched_frame_queue_handle = xQueueCreateStatic(4, sizeof(twai_message_t), isotp_unmatched_frame_queue_storage, &isotp_unmatched_frame_queue_buffer);
+    isotp_msg_queue_handle = xQueueCreateStatic(4, sizeof(struct isotp_msg), isotp_msg_queue_storage, &isotp_msg_queue_buffer);
+    isotp_task_handle = xTaskCreateStatic(isotp_task, "isotp_task", sizeof(isotp_task_stack) / sizeof(isotp_task_stack[0]), NULL, 5, isotp_task_stack, &isotp_task_buffer);
 }

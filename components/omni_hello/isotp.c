@@ -133,6 +133,8 @@ void isotp_event_loop(isotp_event_cb* get_next_event, isotp_unmatched_frame* unm
 
     struct isotp_event evt;
 
+    memset(&isotp_addr_pairs, 0, sizeof(isotp_addr_pairs));
+
     for (;;) {
         get_next_event(&evt);
         switch (evt.type) {

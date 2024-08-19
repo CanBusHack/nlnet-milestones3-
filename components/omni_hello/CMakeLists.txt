@@ -1,7 +1,7 @@
 set(srcs "")
 
 if(CONFIG_OMNITRIX_ENABLE_HELLO)
-  list(APPEND srcs "hello.c")
+  list(APPEND srcs "hello.c" "isotp.c")
 endif()
 
 if("${IDF_TARGET}" STREQUAL linux)
