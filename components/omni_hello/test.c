@@ -627,6 +627,78 @@ void test_send_sf_extended_nopad(void) {
     assert(read_data[3] == 2);
 }
 
+void test_can_log(void) {
+    void get_next_event(struct isotp_event* evt) {
+        static const struct isotp_event events[] = {
+            {
+                .type = EVENT_INCOMING_CAN,
+                .can = {
+                    .id = 0x9FFFFFFF,
+                    .dlc = 2,
+                    .data = { 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 },
+                    .frame = (void*)(uintptr_t)0xDEADBEEF,
+                },
+            },
+            {
+                .type = EVENT_WRITE_MSG,
+                .msg = {
+                    .size = 6,
+                    .data = { 0x00, 0x00, 0x07, 0xE0, 0x09, 0x02 },
+                },
+            },
+            {
+                .type = EVENT_INCOMING_CAN,
+                .can = {
+                    .id = 0x9FFFFFFF,
+                    .dlc = 2,
+                    .data = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 },
+                    .frame = (void*)(uintptr_t)0xDEADBEEF,
+                },
+            },
+            {
+                .type = EVENT_SHUTDOWN,
+            },
+        };
+        static int index = 0;
+        assert(index < (sizeof(events) / sizeof(events[0])));
+        memcpy(evt, &events[index++], sizeof(*evt));
+    }
+
+    void write_frame(uint32_t id, uint8_t dlc, const uint8_t* data) {
+        static int count = 0;
+        switch (count) {
+        case 0:
+            assert(id == 0x9FFFFFFE);
+            assert(dlc == 1);
+            assert(data[0] == 1);
+            break;
+        case 1:
+            assert(id == 0x7E0);
+            assert(dlc == 8);
+            assert(data[0] == 0x02);
+            assert(data[1] == 0x09);
+            assert(data[2] == 0x02);
+            assert(data[3] == 0xCC);
+            assert(data[4] == 0xCC);
+            assert(data[5] == 0xCC);
+            assert(data[6] == 0xCC);
+            assert(data[7] == 0xCC);
+            break;
+        case 2:
+            assert(id == 0x9FFFFFFE);
+            assert(dlc == 1);
+            assert(data[0] == 0);
+            break;
+        default:
+            assert(count < 3);
+            break;
+        }
+        count++;
+    }
+
+    isotp_event_loop(get_next_event, no_unmatched_frame, write_frame, no_read_message_cb);
+}
+
 int main(int argc, char** argv) {
     test_send_sf_no_configure();
     test_read_unmatched();
@@ -638,4 +710,5 @@ int main(int argc, char** argv) {
     test_send_sf_normal_nopad();
     test_send_sf_extended();
     test_send_sf_extended_nopad();
+    test_can_log();
 }

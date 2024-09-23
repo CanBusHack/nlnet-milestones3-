@@ -6,6 +6,8 @@
 
 #include "isotp.h"
 
+#define CAN_DEBUG 1
+
 static struct {
     size_t count;
     struct {
@@ -22,7 +24,55 @@ static struct {
     } pairs[ISOTP_MAX_PAIRS];
     uint8_t bs;
     uint8_t stmin;
+#ifdef CAN_DEBUG
+    bool can_debug;
+#endif
 } isotp_addr_pairs = { 0 };
+
+#ifdef CAN_DEBUG
+
+#define debug_frame_log(write_frame, msg) debug_frame_log_n(write_frame, msg, sizeof(msg) - 1)
+
+static void debug_frame_log_n(isotp_write_frame* write_frame, const char* msg, size_t size) {
+    assert(write_frame);
+    assert(msg);
+    assert(size);
+
+    uint8_t buf[8] = { 2 };
+
+    for (; size > 7; size -= 7, msg += 7) {
+        memcpy(buf + 1, msg, 7);
+        write_frame(0x9FFFFFFE, 8, buf);
+    }
+    if (size) {
+        memcpy(buf + 1, msg, size);
+        write_frame(0x9FFFFFFE, size + 1, buf);
+    }
+}
+
+static void debug_frame(struct isotp_event* evt, isotp_write_frame* write_frame) {
+    assert(evt);
+    assert(write_frame);
+    assert(evt->type == EVENT_INCOMING_CAN);
+
+    if (evt->can.dlc > 0) {
+        switch (evt->can.data[0]) {
+        case 0:
+            isotp_addr_pairs.can_debug = false;
+            write_frame(0x9FFFFFFE, 1, evt->can.data);
+            return;
+        case 1:
+            isotp_addr_pairs.can_debug = true;
+            write_frame(0x9FFFFFFE, 1, evt->can.data);
+            return;
+        default:
+            break;
+        }
+    }
+    uint8_t data = 0xFF;
+    write_frame(0x9FFFFFFE, 1, &data);
+}
+#endif
 
 static void handle_write_msg(struct isotp_event* evt, int index, isotp_write_frame* write_frame) {
     assert(evt);
@@ -199,6 +249,12 @@ void isotp_event_loop(isotp_event_cb* get_next_event, isotp_unmatched_frame* unm
                 }
             }
             if (!matched) {
+#ifdef CAN_DEBUG
+                if (evt.can.id == 0x9FFFFFFF) {
+                    debug_frame(&evt, write_frame);
+                    break;
+                }
+#endif
                 unmatched_frame(evt.can.frame);
             }
             break;
