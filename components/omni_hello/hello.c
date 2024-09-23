@@ -58,7 +58,7 @@ static void get_next_event(struct isotp_event* evt) {
     assert(ret == pdTRUE);
 }
 
-static void unmatched_frame(void* frame) {
+static void unmatched_frame(const uint8_t* frame) {
     assert(frame);
     // NOTE: if this queue is full the frame will be dropped!
     xQueueSend(isotp_unmatched_frame_queue_handle, frame, 0);
@@ -139,6 +139,7 @@ static void isotp_read_task(void* ptr) {
                 },
             };
             memcpy(event.can.data, msg.data, (msg.data_length_code < 8) ? msg.data_length_code : 8);
+            memcpy(event.can.frame, &msg, sizeof(msg));
             if (xQueueSend(isotp_event_queue_handle, &event, 0) == pdTRUE) {
                 ESP_LOGI(tag, "queued incoming frame event");
             } else {

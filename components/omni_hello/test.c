@@ -62,7 +62,7 @@ static void test_send_sf_no_configure(void) {
 }
 
 static void test_read_unmatched(void) {
-    uintptr_t read_frame = 0;
+    uint8_t read_frame[4] = { 0 };
 
     void get_next_event(struct isotp_event* evt) {
         static const struct isotp_event events[] = {
@@ -72,7 +72,7 @@ static void test_read_unmatched(void) {
                     .id = 0x7e8,
                     .dlc = 8,
                     .data = { 0x10, 0x14, 0x49, 0x02, 0x01, 0x41, 0x42, 0x43 },
-                    .frame = (void*)(uintptr_t)0xDEADBEEF,
+                    .frame = { 0xDE, 0xAD, 0xBE, 0xEF },
                 },
             },
             {
@@ -84,15 +84,18 @@ static void test_read_unmatched(void) {
         memcpy(evt, &events[index++], sizeof(*evt));
     }
 
-    void unmatched_frame(void* frame) {
+    void unmatched_frame(const uint8_t* frame) {
         static int count = 0;
         assert(count < 1);
         count++;
-        read_frame = (uintptr_t)frame;
+        memcpy(read_frame, frame, sizeof(read_frame));
     }
 
     isotp_event_loop(get_next_event, unmatched_frame, no_write_frame, no_read_message_cb);
-    assert(read_frame == 0xDEADBEEF);
+    assert(read_frame[0] == 0xDE);
+    assert(read_frame[1] == 0xAD);
+    assert(read_frame[2] == 0xBE);
+    assert(read_frame[3] == 0xEF);
 }
 
 static void test_read_multi_normal(void) {

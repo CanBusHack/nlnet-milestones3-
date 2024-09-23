@@ -32,13 +32,13 @@ struct isotp_event {
             uint32_t id;
             uint8_t dlc;
             uint8_t data[8];
-            void* frame;
+            uint8_t frame[72]; // big enough to hold a CAN-FD frame on Linux
         } can;
     };
 };
 
 typedef void isotp_event_cb(struct isotp_event*);
-typedef void isotp_unmatched_frame(void* frame);
+typedef void isotp_unmatched_frame(const uint8_t* frame);
 typedef void isotp_write_frame(uint32_t id, uint8_t dlc, const uint8_t* data);
 typedef void isotp_read_message_cb(const uint8_t* data, size_t size);
 
