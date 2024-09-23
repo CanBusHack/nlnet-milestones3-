@@ -676,6 +676,39 @@ void test_can_log(void) {
             assert(data[0] == 1);
             break;
         case 1:
+            assert(id == 0x9FFFFFFE);
+            assert(dlc == 8);
+            assert(data[0] == 0x02);
+            assert(data[1] == 'W');
+            assert(data[2] == 'r');
+            assert(data[3] == 'i');
+            assert(data[4] == 't');
+            assert(data[5] == 'i');
+            assert(data[6] == 'n');
+            assert(data[7] == 'g');
+            break;
+        case 2:
+            assert(id == 0x9FFFFFFE);
+            assert(dlc == 8);
+            assert(data[0] == 0x02);
+            assert(data[1] == ' ');
+            assert(data[2] == 'm');
+            assert(data[3] == 'e');
+            assert(data[4] == 's');
+            assert(data[5] == 's');
+            assert(data[6] == 'a');
+            assert(data[7] == 'g');
+            break;
+        case 3:
+            assert(id == 0x9FFFFFFE);
+            assert(dlc == 5);
+            assert(data[0] == 0x02);
+            assert(data[1] == 'e');
+            assert(data[2] == '.');
+            assert(data[3] == '.');
+            assert(data[4] == '.');
+            break;
+        case 4:
             assert(id == 0x7E0);
             assert(dlc == 8);
             assert(data[0] == 0x02);
@@ -687,13 +720,13 @@ void test_can_log(void) {
             assert(data[6] == 0xCC);
             assert(data[7] == 0xCC);
             break;
-        case 2:
+        case 5:
             assert(id == 0x9FFFFFFE);
             assert(dlc == 1);
             assert(data[0] == 0);
             break;
         default:
-            assert(count < 3);
+            assert(count < 6);
             break;
         }
         count++;

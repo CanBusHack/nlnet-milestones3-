@@ -31,7 +31,10 @@ static struct {
 
 #ifdef CAN_DEBUG
 
-#define debug_frame_log(write_frame, msg) debug_frame_log_n(write_frame, msg, sizeof(msg) - 1)
+#define debug_frame_log(write_frame, msg)                     \
+    if (isotp_addr_pairs.can_debug) {                         \
+        debug_frame_log_n(write_frame, msg, sizeof(msg) - 1); \
+    }
 
 static void debug_frame_log_n(isotp_write_frame* write_frame, const char* msg, size_t size) {
     assert(write_frame);
@@ -72,6 +75,11 @@ static void debug_frame(struct isotp_event* evt, isotp_write_frame* write_frame)
     uint8_t data = 0xFF;
     write_frame(0x9FFFFFFE, 1, &data);
 }
+
+#else
+
+#define debug_frame_log(write_frame, msg)
+
 #endif
 
 static void handle_write_msg(struct isotp_event* evt, int index, isotp_write_frame* write_frame) {
@@ -212,6 +220,7 @@ void isotp_event_loop(isotp_event_cb* get_next_event, isotp_unmatched_frame* unm
             break;
         }
         case EVENT_WRITE_MSG: {
+            debug_frame_log(write_frame, "Writing message...");
             assert(evt.msg.size > 4);
             uint32_t id = (evt.msg.data[0] << 24) | (evt.msg.data[1] << 16) | (evt.msg.data[2] << 8) | evt.msg.data[3];
             bool matched = false;
