@@ -4,7 +4,7 @@
 
 #include "isotp.h"
 
-static void no_unmatched_frame(void* frame) {
+static void no_unmatched_frame(const uint8_t* frame) {
     assert(0);
 }
 
@@ -117,7 +117,7 @@ static void test_read_multi_normal(void) {
                     .id = 0x7e8,
                     .dlc = 8,
                     .data = { 0x10, 0x14, 0x49, 0x02, 0x01, 0x41, 0x42, 0x43 },
-                    .frame = (void*)(uintptr_t)0xDEADBEEF,
+                    .frame = { 0xDE, 0xAD, 0xBE, 0xEF },
                 },
             },
             {
@@ -126,7 +126,7 @@ static void test_read_multi_normal(void) {
                     .id = 0x7e8,
                     .dlc = 8,
                     .data = { 0x21, 0x44, 0x45, 0x46, 0x47, 0x48, 0x49, 0x4A },
-                    .frame = (void*)(uintptr_t)0xDEADBEEF,
+                    .frame = { 0xDE, 0xAD, 0xBE, 0xEF },
                 },
             },
             {
@@ -135,7 +135,7 @@ static void test_read_multi_normal(void) {
                     .id = 0x7e8,
                     .dlc = 8,
                     .data = { 0x22, 0x4B, 0x4C, 0x4D, 0x4E, 0x4F, 0x50, 0x51 },
-                    .frame = (void*)(uintptr_t)0xDEADBEEF,
+                    .frame = { 0xDE, 0xAD, 0xBE, 0xEF },
                 },
             },
             {
@@ -198,7 +198,7 @@ static void test_read_multi_extended(void) {
                     .id = 0x7e8,
                     .dlc = 8,
                     .data = { 0xEF, 0x10, 0x14, 0x49, 0x02, 0x01, 0x41, 0x42 },
-                    .frame = (void*)(uintptr_t)0xDEADBEEF,
+                    .frame = { 0xDE, 0xAD, 0xBE, 0xEF },
                 },
             },
             {
@@ -207,7 +207,7 @@ static void test_read_multi_extended(void) {
                     .id = 0x7e8,
                     .dlc = 8,
                     .data = { 0xEF, 0x21, 0x43, 0x44, 0x45, 0x46, 0x47, 0x48 },
-                    .frame = (void*)(uintptr_t)0xDEADBEEF,
+                    .frame = { 0xDE, 0xAD, 0xBE, 0xEF },
                 },
             },
             {
@@ -216,7 +216,7 @@ static void test_read_multi_extended(void) {
                     .id = 0x7e8,
                     .dlc = 8,
                     .data = { 0xEF, 0x22, 0x49, 0x4A, 0x4B, 0x4C, 0x4D, 0x4E },
-                    .frame = (void*)(uintptr_t)0xDEADBEEF,
+                    .frame = { 0xDE, 0xAD, 0xBE, 0xEF },
                 },
             },
             {
@@ -225,7 +225,7 @@ static void test_read_multi_extended(void) {
                     .id = 0x7e8,
                     .dlc = 8,
                     .data = { 0xEF, 0x23, 0x4F, 0x50, 0x51, 0x24, 0x24, 0x24 },
-                    .frame = (void*)(uintptr_t)0xDEADBEEF,
+                    .frame = { 0xDE, 0xAD, 0xBE, 0xEF },
                 },
             },
             {
@@ -288,7 +288,7 @@ static void test_read_multi_normal_nopad(void) {
                     .id = 0x7e8,
                     .dlc = 8,
                     .data = { 0x10, 0x14, 0x49, 0x02, 0x01, 0x41, 0x42, 0x43 },
-                    .frame = (void*)(uintptr_t)0xDEADBEEF,
+                    .frame = { 0xDE, 0xAD, 0xBE, 0xEF },
                 },
             },
             {
@@ -297,7 +297,7 @@ static void test_read_multi_normal_nopad(void) {
                     .id = 0x7e8,
                     .dlc = 8,
                     .data = { 0x21, 0x44, 0x45, 0x46, 0x47, 0x48, 0x49, 0x4A },
-                    .frame = (void*)(uintptr_t)0xDEADBEEF,
+                    .frame = { 0xDE, 0xAD, 0xBE, 0xEF },
                 },
             },
             {
@@ -306,7 +306,7 @@ static void test_read_multi_normal_nopad(void) {
                     .id = 0x7e8,
                     .dlc = 8,
                     .data = { 0x22, 0x4B, 0x4C, 0x4D, 0x4E, 0x4F, 0x50, 0x51 },
-                    .frame = (void*)(uintptr_t)0xDEADBEEF,
+                    .frame = { 0xDE, 0xAD, 0xBE, 0xEF },
                 },
             },
             {
@@ -364,7 +364,7 @@ static void test_read_multi_extended_nopad(void) {
                     .id = 0x7e8,
                     .dlc = 8,
                     .data = { 0xEF, 0x10, 0x14, 0x49, 0x02, 0x01, 0x41, 0x42 },
-                    .frame = (void*)(uintptr_t)0xDEADBEEF,
+                    .frame = { 0xDE, 0xAD, 0xBE, 0xEF },
                 },
             },
             {
@@ -373,7 +373,7 @@ static void test_read_multi_extended_nopad(void) {
                     .id = 0x7e8,
                     .dlc = 8,
                     .data = { 0xEF, 0x21, 0x43, 0x44, 0x45, 0x46, 0x47, 0x48 },
-                    .frame = (void*)(uintptr_t)0xDEADBEEF,
+                    .frame = { 0xDE, 0xAD, 0xBE, 0xEF },
                 },
             },
             {
@@ -382,7 +382,7 @@ static void test_read_multi_extended_nopad(void) {
                     .id = 0x7e8,
                     .dlc = 8,
                     .data = { 0xEF, 0x22, 0x49, 0x4A, 0x4B, 0x4C, 0x4D, 0x4E },
-                    .frame = (void*)(uintptr_t)0xDEADBEEF,
+                    .frame = { 0xDE, 0xAD, 0xBE, 0xEF },
                 },
             },
             {
@@ -391,7 +391,7 @@ static void test_read_multi_extended_nopad(void) {
                     .id = 0x7e8,
                     .dlc = 5,
                     .data = { 0xEF, 0x23, 0x4F, 0x50, 0x51 },
-                    .frame = (void*)(uintptr_t)0xDEADBEEF,
+                    .frame = { 0xDE, 0xAD, 0xBE, 0xEF },
                 },
             },
             {
@@ -639,7 +639,7 @@ void test_can_log(void) {
                     .id = 0x9FFFFFFF,
                     .dlc = 2,
                     .data = { 0x01, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 },
-                    .frame = (void*)(uintptr_t)0xDEADBEEF,
+                    .frame = { 0xDE, 0xAD, 0xBE, 0xEF },
                 },
             },
             {
@@ -655,7 +655,7 @@ void test_can_log(void) {
                     .id = 0x9FFFFFFF,
                     .dlc = 2,
                     .data = { 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00 },
-                    .frame = (void*)(uintptr_t)0xDEADBEEF,
+                    .frame = { 0xDE, 0xAD, 0xBE, 0xEF },
                 },
             },
             {
