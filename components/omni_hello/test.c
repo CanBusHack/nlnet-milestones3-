@@ -51,14 +51,7 @@ static void test_send_sf_no_configure(void) {
     isotp_event_loop(get_next_event, no_unmatched_frame, write_frame, no_read_message_cb);
     assert(read_id == 0x7DF);
     assert(read_dlc == 8);
-    assert(read_data[0] == 2);
-    assert(read_data[1] == 9);
-    assert(read_data[2] == 2);
-    assert(read_data[3] == 0xCC);
-    assert(read_data[4] == 0xCC);
-    assert(read_data[5] == 0xCC);
-    assert(read_data[6] == 0xCC);
-    assert(read_data[7] == 0xCC);
+    assert(!memcmp(read_data, "\x02\x09\x02\xCC\xCC\xCC\xCC\xCC", 8));
 }
 
 static void test_read_unmatched(void) {
@@ -92,10 +85,7 @@ static void test_read_unmatched(void) {
     }
 
     isotp_event_loop(get_next_event, unmatched_frame, no_write_frame, no_read_message_cb);
-    assert(read_frame[0] == 0xDE);
-    assert(read_frame[1] == 0xAD);
-    assert(read_frame[2] == 0xBE);
-    assert(read_frame[3] == 0xEF);
+    assert(!memcmp(read_frame, "\xDE\xAD\xBE\xEF", 4));
 }
 
 static void test_read_multi_normal(void) {
@@ -153,14 +143,7 @@ static void test_read_multi_normal(void) {
         count++;
         assert(id == 0x7E0);
         assert(dlc == 8);
-        assert(data[0] == 0x30);
-        assert(data[1] == 0);
-        assert(data[2] == 0);
-        assert(data[3] == 0xCC);
-        assert(data[4] == 0xCC);
-        assert(data[5] == 0xCC);
-        assert(data[6] == 0xCC);
-        assert(data[7] == 0xCC);
+        assert(!memcmp(data, "\x30\x00\x00\xCC\xCC\xCC\xCC\xCC", 8));
     }
 
     void read_message_cb(const uint8_t* data, size_t size) {
@@ -243,14 +226,7 @@ static void test_read_multi_extended(void) {
         count++;
         assert(id == 0x7E0);
         assert(dlc == 8);
-        assert(data[0] == 0xFE);
-        assert(data[1] == 0x30);
-        assert(data[2] == 0);
-        assert(data[3] == 0);
-        assert(data[4] == 0x42);
-        assert(data[5] == 0x42);
-        assert(data[6] == 0x42);
-        assert(data[7] == 0x42);
+        assert(!memcmp(data, "\xFE\x30\x00\x00\x42\x42\x42\x42", 8));
     }
 
     void read_message_cb(const uint8_t* data, size_t size) {
@@ -324,9 +300,7 @@ static void test_read_multi_normal_nopad(void) {
         count++;
         assert(id == 0x7E0);
         assert(dlc == 3);
-        assert(data[0] == 0x30);
-        assert(data[1] == 0);
-        assert(data[2] == 0);
+        assert(!memcmp(data, "\x30\x00\x00", 3));
     }
 
     void read_message_cb(const uint8_t* data, size_t size) {
@@ -409,10 +383,7 @@ static void test_read_multi_extended_nopad(void) {
         count++;
         assert(id == 0x7E0);
         assert(dlc == 4);
-        assert(data[0] == 0xFE);
-        assert(data[1] == 0x30);
-        assert(data[2] == 0);
-        assert(data[3] == 0);
+        assert(!memcmp(data, "\xFE\x30\x00\x00", 4));
     }
 
     void read_message_cb(const uint8_t* data, size_t size) {
@@ -473,14 +444,7 @@ void test_send_sf_normal(void) {
     isotp_event_loop(get_next_event, no_unmatched_frame, write_frame, no_read_message_cb);
     assert(read_id == 0x7E0);
     assert(read_dlc == 8);
-    assert(read_data[0] == 2);
-    assert(read_data[1] == 9);
-    assert(read_data[2] == 2);
-    assert(read_data[3] == 0x42);
-    assert(read_data[4] == 0x42);
-    assert(read_data[5] == 0x42);
-    assert(read_data[6] == 0x42);
-    assert(read_data[7] == 0x42);
+    assert(!memcmp(read_data, "\x02\x09\x02\x42\x42\x42\x42\x42", 8));
 }
 
 void test_send_sf_normal_nopad(void) {
@@ -525,9 +489,7 @@ void test_send_sf_normal_nopad(void) {
     isotp_event_loop(get_next_event, no_unmatched_frame, write_frame, no_read_message_cb);
     assert(read_id == 0x7E0);
     assert(read_dlc == 3);
-    assert(read_data[0] == 2);
-    assert(read_data[1] == 9);
-    assert(read_data[2] == 2);
+    assert(!memcmp(read_data, "\x02\x09\x02", 3));
 }
 
 void test_send_sf_extended(void) {
@@ -572,14 +534,7 @@ void test_send_sf_extended(void) {
     isotp_event_loop(get_next_event, no_unmatched_frame, write_frame, no_read_message_cb);
     assert(read_id == 0x7E0);
     assert(read_dlc == 8);
-    assert(read_data[0] == 0x21);
-    assert(read_data[1] == 2);
-    assert(read_data[2] == 9);
-    assert(read_data[3] == 2);
-    assert(read_data[4] == 0x42);
-    assert(read_data[5] == 0x42);
-    assert(read_data[6] == 0x42);
-    assert(read_data[7] == 0x42);
+    assert(!memcmp(read_data, "\x21\x02\x09\x02\x42\x42\x42\x42", 8));
 }
 
 void test_send_sf_extended_nopad(void) {
@@ -624,10 +579,7 @@ void test_send_sf_extended_nopad(void) {
     isotp_event_loop(get_next_event, no_unmatched_frame, write_frame, no_read_message_cb);
     assert(read_id == 0x7E0);
     assert(read_dlc == 4);
-    assert(read_data[0] == 0x21);
-    assert(read_data[1] == 2);
-    assert(read_data[2] == 9);
-    assert(read_data[3] == 2);
+    assert(!memcmp(read_data, "\x21\x02\x09\x02", 4));
 }
 
 void test_can_log(void) {
@@ -678,47 +630,22 @@ void test_can_log(void) {
         case 1:
             assert(id == 0x9FFFFFFE);
             assert(dlc == 8);
-            assert(data[0] == 0x02);
-            assert(data[1] == 'W');
-            assert(data[2] == 'r');
-            assert(data[3] == 'i');
-            assert(data[4] == 't');
-            assert(data[5] == 'i');
-            assert(data[6] == 'n');
-            assert(data[7] == 'g');
+            assert(!memcmp(data, "\x02" "Writing", 8));
             break;
         case 2:
             assert(id == 0x9FFFFFFE);
             assert(dlc == 8);
-            assert(data[0] == 0x02);
-            assert(data[1] == ' ');
-            assert(data[2] == 'm');
-            assert(data[3] == 'e');
-            assert(data[4] == 's');
-            assert(data[5] == 's');
-            assert(data[6] == 'a');
-            assert(data[7] == 'g');
+            assert(!memcmp(data, "\x02" " messag", 8));
             break;
         case 3:
             assert(id == 0x9FFFFFFE);
             assert(dlc == 5);
-            assert(data[0] == 0x02);
-            assert(data[1] == 'e');
-            assert(data[2] == '.');
-            assert(data[3] == '.');
-            assert(data[4] == '.');
+            assert(!memcmp(data, "\x02" "e...", 5));
             break;
         case 4:
             assert(id == 0x7E0);
             assert(dlc == 8);
-            assert(data[0] == 0x02);
-            assert(data[1] == 0x09);
-            assert(data[2] == 0x02);
-            assert(data[3] == 0xCC);
-            assert(data[4] == 0xCC);
-            assert(data[5] == 0xCC);
-            assert(data[6] == 0xCC);
-            assert(data[7] == 0xCC);
+            assert(!memcmp(data, "\x02\x09\x02\xCC\xCC\xCC\xCC\xCC", 8));
             break;
         case 5:
             assert(id == 0x9FFFFFFE);
