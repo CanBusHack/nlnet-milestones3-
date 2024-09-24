@@ -7,6 +7,7 @@
 #include "isotp.h"
 
 #define CAN_DEBUG 1
+#define BLE_DEBUG 1
 
 static struct {
     size_t count;
@@ -26,6 +27,9 @@ static struct {
     uint8_t stmin;
 #ifdef CAN_DEBUG
     bool can_debug;
+#endif
+#ifdef BLE_DEBUG
+    bool ble_debug;
 #endif
 } isotp_addr_pairs = { 0 };
 
@@ -79,6 +83,62 @@ static void debug_frame(struct isotp_event* evt, isotp_write_frame* write_frame)
 #else
 
 #define debug_frame_log(write_frame, msg)
+
+#endif
+
+#ifdef BLE_DEBUG
+
+#define debug_msg_log(read_message_cb, msg)                     \
+    if (isotp_addr_pairs.ble_debug) {                           \
+        debug_msg_log_n(read_message_cb, msg, sizeof(msg) - 1); \
+    }
+
+static void debug_msg_log_n(isotp_read_message_cb* read_message_cb, const char* msg, size_t size) {
+    assert(read_message_cb);
+    assert(msg);
+    assert(size);
+
+    uint8_t buf[256] = { 0xFF, 0xFF, 0xFF, 0xFE, 0x02 };
+
+    for (; size > 251; size -= 251, msg += 251) {
+        memcpy(buf + 5, msg, 251);
+        read_message_cb(buf, 256);
+    }
+    if (size) {
+        memcpy(buf + 5, msg, size);
+        read_message_cb(buf, size + 5);
+    }
+}
+
+static void debug_msg(struct isotp_event* evt, isotp_read_message_cb* read_message_cb) {
+    assert(evt);
+    assert(read_message_cb);
+    assert(evt->type == EVENT_WRITE_MSG);
+
+    if (evt->msg.size > 3) {
+        evt->msg.data[3] -= 1;
+        if (evt->msg.size > 4) {
+            switch (evt->msg.data[4]) {
+            case 0:
+                isotp_addr_pairs.ble_debug = false;
+                read_message_cb(evt->msg.data, 5);
+                return;
+            case 1:
+                isotp_addr_pairs.ble_debug = true;
+                read_message_cb(evt->msg.data, 5);
+                return;
+            default:
+                break;
+            }
+            evt->msg.data[4] = 0xFF;
+            read_message_cb(evt->msg.data, 5);
+        }
+    }
+}
+
+#else
+
+#define debug_msg_log(read_message_cb, msg)
 
 #endif
 
@@ -236,6 +296,12 @@ void isotp_event_loop(isotp_event_cb* get_next_event, isotp_unmatched_frame* unm
                     break;
                 }
             }
+#ifdef BLE_DEBUG
+            if (!matched && id == 0xFFFFFFFF) {
+                debug_msg(&evt, read_message_cb);
+                break;
+            }
+#endif
             if (!matched && evt.msg.size <= 11) {
                 // allow anyways when it fits in a single frame
                 for (int i = evt.msg.size; i < 11; i++) {
@@ -247,6 +313,7 @@ void isotp_event_loop(isotp_event_cb* get_next_event, isotp_unmatched_frame* unm
             break;
         }
         case EVENT_INCOMING_CAN: {
+            debug_msg_log(read_message_cb, "Incoming frame...");
             bool matched = false;
             for (int i = 0; i < isotp_addr_pairs.count; i++) {
                 bool id_match = (evt.can.id & 0x9FFFFFFF) == (isotp_addr_pairs.pairs[i].rxid & 0x9FFFFFFF);

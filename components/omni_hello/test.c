@@ -1,4 +1,5 @@
 #include <assert.h>
+#include <stdbool.h>
 #include <stdint.h>
 #include <string.h>
 
@@ -583,6 +584,8 @@ void test_send_sf_extended_nopad(void) {
 }
 
 void test_can_log(void) {
+    bool read_all = false;
+
     void get_next_event(struct isotp_event* evt) {
         static const struct isotp_event events[] = {
             {
@@ -651,6 +654,7 @@ void test_can_log(void) {
             assert(id == 0x9FFFFFFE);
             assert(dlc == 1);
             assert(data[0] == 0);
+            read_all = true;
             break;
         default:
             assert(count < 6);
@@ -660,6 +664,77 @@ void test_can_log(void) {
     }
 
     isotp_event_loop(get_next_event, no_unmatched_frame, write_frame, no_read_message_cb);
+    assert(read_all);
+}
+
+void test_ble_log(void) {
+    bool read_all = false;
+
+    void get_next_event(struct isotp_event* evt) {
+        static const struct isotp_event events[] = {
+            {
+                .type = EVENT_WRITE_MSG,
+                .msg = {
+                    .size = 6,
+                    .data = { 0xFF, 0xFF, 0xFF, 0xFF, 0x01 },
+                },
+            },
+            {
+                .type = EVENT_INCOMING_CAN,
+                .can = {
+                    .id = 0x42A,
+                    .dlc = 8,
+                    .data = { 0x01, 0x02, 0x03, 0x04, 0x05, 0x06, 0x07, 0x08 },
+                    .frame = { 0xDE, 0xAD, 0xBE, 0xEF },
+                },
+            },
+            {
+                .type = EVENT_WRITE_MSG,
+                .msg = {
+                    .size = 6,
+                    .data = { 0xFF, 0xFF, 0xFF, 0xFF, 0x00 },
+                },
+            },
+            {
+                .type = EVENT_SHUTDOWN,
+            },
+        };
+        static int index = 0;
+        assert(index < (sizeof(events) / sizeof(events[0])));
+        memcpy(evt, &events[index++], sizeof(*evt));
+    }
+
+    void read_message_cb(const uint8_t* data, size_t size) {
+        static int count = 0;
+        switch (count) {
+        case 0:
+            assert(size == 5);
+            assert(!memcmp(data, "\xFF\xFF\xFF\xFE\x01", 5));
+            break;
+        case 1:
+            assert(size == 22);
+            assert(!memcmp(data, "\xFF\xFF\xFF\xFE\x02" "Incoming frame...", 22));
+            break;
+        case 2:
+            assert(size == 5);
+            assert(!memcmp(data, "\xFF\xFF\xFF\xFE\x00", 5));
+            read_all = true;
+            break;
+        default:
+            assert(count < 3);
+            break;
+        }
+        count++;
+    }
+
+    void unmatched_frame(const uint8_t* frame) {
+        static int count = 0;
+        assert(count == 0);
+        count++;
+    }
+
+    isotp_event_loop(get_next_event, unmatched_frame, no_write_frame, read_message_cb);
+    assert(read_all);
 }
 
 int main(int argc, char** argv) {
@@ -674,4 +749,5 @@ int main(int argc, char** argv) {
     test_send_sf_extended();
     test_send_sf_extended_nopad();
     test_can_log();
+    test_ble_log();
 }
