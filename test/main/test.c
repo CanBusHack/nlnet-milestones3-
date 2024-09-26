@@ -2,11 +2,20 @@
 #include <nimble/nimble_port.h>
 #include <nimble/nimble_port_freertos.h>
 #include <nvs_flash.h>
+#include <unity.h>
 #include <unity_test_runner.h>
 
 static void ble_host_task(void* param) {
     unity_run_all_tests();
     nimble_port_freertos_deinit();
+}
+
+void setUp(void) {
+    TEST_ASSERT_EQUAL(nimble_port_init(), 0);
+}
+
+void tearDown(void) {
+    TEST_ASSERT_EQUAL(nimble_port_deinit(), 0);
 }
 
 void app_main(void) {
@@ -17,6 +26,5 @@ void app_main(void) {
     }
     ESP_ERROR_CHECK(ret);
 
-    ESP_ERROR_CHECK(nimble_port_init());
     nimble_port_freertos_init(ble_host_task);
 }
