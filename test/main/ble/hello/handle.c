@@ -21,7 +21,7 @@ static const char expected[] = "Hello from Omnitrix!";
 static char actual[sizeof(expected)] = { 0 };
 static jmp_buf out;
 
-int read_cb(uint16_t conn_handle, const struct ble_gatt_error* error, struct ble_gatt_attr* attr, void* arg) {
+static int read_cb(uint16_t conn_handle, const struct ble_gatt_error* error, struct ble_gatt_attr* attr, void* arg) {
     static int count = 0;
     TEST_ASSERT_EQUAL(0, count);
     count++;
@@ -35,7 +35,7 @@ int read_cb(uint16_t conn_handle, const struct ble_gatt_error* error, struct ble
 
 static uint16_t val_handle = 0;
 
-int chr_cb(uint16_t conn_handle, const struct ble_gatt_error* error, const struct ble_gatt_chr* chr, void* arg) {
+static int chr_cb(uint16_t conn_handle, const struct ble_gatt_error* error, const struct ble_gatt_chr* chr, void* arg) {
     static int count = 0;
     if (count && error->status == 0xe) {
         return 0;
@@ -52,7 +52,7 @@ int chr_cb(uint16_t conn_handle, const struct ble_gatt_error* error, const struc
 static uint16_t start_handle = 0;
 static uint16_t end_handle = 0;
 
-int svc_cb(uint16_t conn_handle, const struct ble_gatt_error* error, const struct ble_gatt_svc* service, void* arg) {
+static int svc_cb(uint16_t conn_handle, const struct ble_gatt_error* error, const struct ble_gatt_svc* service, void* arg) {
     static int count = 0;
     if (count && error->status == 0xe) {
         return 0;
@@ -67,7 +67,7 @@ int svc_cb(uint16_t conn_handle, const struct ble_gatt_error* error, const struc
     return 0;
 }
 
-int mtu_cb(uint16_t conn_handle, const struct ble_gatt_error* error, uint16_t mtu, void* arg) {
+static int mtu_cb(uint16_t conn_handle, const struct ble_gatt_error* error, uint16_t mtu, void* arg) {
     static int count = 0;
     TEST_ASSERT_EQUAL(0, count);
     count++;
@@ -76,7 +76,7 @@ int mtu_cb(uint16_t conn_handle, const struct ble_gatt_error* error, uint16_t mt
     return 0;
 }
 
-int connect_cb(struct ble_gap_event* event, void* arg) {
+static int connect_cb(struct ble_gap_event* event, void* arg) {
     static int count = 0;
     switch (event->type) {
     case BLE_GAP_EVENT_CONNECT:
@@ -100,7 +100,7 @@ int connect_cb(struct ble_gap_event* event, void* arg) {
     return 0;
 }
 
-int scan_cb(struct ble_gap_event* event, void* arg) {
+static int scan_cb(struct ble_gap_event* event, void* arg) {
     static int count = 0;
     struct ble_hs_adv_fields fields;
     switch (event->type) {
@@ -126,7 +126,7 @@ int scan_cb(struct ble_gap_event* event, void* arg) {
     return 0;
 }
 
-void scan(void) {
+static void scan(void) {
     static int count = 0;
     TEST_ASSERT_EQUAL(0, count);
     count++;
@@ -140,11 +140,11 @@ void scan(void) {
     TEST_ASSERT_EQUAL_HEX(0, ble_gap_disc(own_addr_type, 30000, &params, scan_cb, NULL));
 }
 
-void reset_cb(int reason) {
+static void reset_cb(int reason) {
     TEST_FAIL_MESSAGE("unexpected BLE reset");
 }
 
-void sync_cb(void) {
+static void sync_cb(void) {
     static int count = 0;
     TEST_ASSERT_EQUAL(0, count);
     count++;
@@ -152,7 +152,7 @@ void sync_cb(void) {
     scan();
 }
 
-TEST_CASE("BLE hello endpoint", "[ble][hello]") {
+TEST_CASE("BLE hello endpoint (handle)", "[ble][hello]") {
     memset(actual, 0, sizeof(actual));
     val_handle = 0;
     start_handle = 0;
