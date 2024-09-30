@@ -3,6 +3,7 @@ idf_component_register(
   "test.c"
   "ble/hello/handle.c"
   "ble/hello/uuid.c"
+  "can/isotp/read.c"
   "can/isotp/write-multi.c"
   "can/isotp/write-single.c"
   "can/raw/read.c"
