@@ -6,6 +6,7 @@
 
 #include <omnitrix/ble.h>
 #include <omnitrix/hello.h>
+#include <omnitrix/j2534.h>
 #include <omnitrix/ota.h>
 
 static const char tag[] = "omnitrix";
@@ -48,6 +49,9 @@ void app_main(void) {
 #endif
 #ifdef CONFIG_OMNITRIX_ENABLE_HELLO
         omni_hello_gatt_svr_svcs,
+#endif
+#ifdef CONFIG_OMNITRIX_ENABLE_J2534
+        omni_j2534_gatt_svr_svcs,
 #endif
         NULL,
     };

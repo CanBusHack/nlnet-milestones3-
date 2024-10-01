@@ -4,6 +4,8 @@ idf_component_register(
   "ble.c"
   "hello.c"
   "isotp.c"
+  "j2534.c"
+  "j2534.pb-c.c"
   "libcan.c"
   "libnvs.c"
   "libvin.c"
@@ -20,6 +22,7 @@ idf_component_register(
   esp_partition
   nvs_flash
   protocomm
+  protobuf-c
 )
 
 target_compile_options(${COMPONENT_LIB} PRIVATE -Wall -Wextra -Wpedantic -Wshadow -fsanitize=undefined -fanalyzer)

@@ -1,0 +1,52 @@
+syntax = "proto3";
+
+enum Call {
+    InvalidCall = 0;
+    Connect = 1;
+    Disconnect = 2;
+    Read = 3;
+    Write = 4;
+    StartPeriodic = 5;
+    StopPeriodic = 6;
+    StartFilter = 7;
+    StopFilter = 8;
+    SetVoltage = 9;
+    ReadVersion = 10;
+    GetError = 11;
+}
+
+message ConnectParams {
+    uint32 protocol = 1;
+    uint32 flags = 2;
+    uint32 baud = 3;
+}
+
+message ConnectResult {
+    uint32 channel = 1;
+}
+
+message DisconnectParams {
+    uint32 channel = 1;
+}
+
+message GetErrorResult {
+    string error = 1;
+}
+
+message Request {
+    uint32 id = 1;
+    Call call = 2;
+    oneof params {
+        ConnectParams connect = 3;
+        DisconnectParams disconnect = 4;
+    }
+}
+
+message Response {
+    uint32 id = 1;
+    uint32 code = 2;
+    oneof result {
+        ConnectResult connect = 3;
+        GetErrorResult error = 13;
+    }
+}

@@ -32,4 +32,18 @@ menu "Omnitrix config"
         bool "Enable Hello World component"
         default y
 
+    menuconfig OMNITRIX_ENABLE_J2534
+        bool "Enable J2534 component"
+        default y
+
+    config OMNITRIX_J2534_SERVICE_UUID
+        depends on OMNITRIX_ENABLE_BLE && OMNITRIX_ENABLE_J2534
+        string "J2534 BLE serivce UUID"
+        default "e511baa5-04e4-4570-9988-df6b28d24e2c"
+
+    config OMNITRIX_J2534_CHARACTERISTIC_UUID
+        depends on OMNITRIX_ENABLE_BLE && OMNITRIX_ENABLE_J2534
+        string "J2534 BLE characteristic UUID"
+        default "fae08ca5-c3f5-4c2c-8484-b817eccb66ff"
+
 endmenu
