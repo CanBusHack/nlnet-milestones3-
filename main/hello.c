@@ -20,6 +20,7 @@
 #include <os/os_mbuf.h>
 
 #include <omnitrix/hello.h>
+#include <omnitrix/libcan.h>
 #include <omnitrix/libvin.h>
 
 #ifdef CONFIG_OMNITRIX_ENABLE_BLE
@@ -375,24 +376,7 @@ const struct ble_gatt_svc_def omni_hello_gatt_svr_svcs[] = {
 #endif
 
 void omni_hello_main(void) {
-    twai_general_config_t general_config = TWAI_GENERAL_CONFIG_DEFAULT(GPIO_NUM_33, GPIO_NUM_34, TWAI_MODE_NORMAL);
-    twai_timing_config_t timing_config = TWAI_TIMING_CONFIG_500KBITS();
-    twai_filter_config_t filter_config = TWAI_FILTER_CONFIG_ACCEPT_ALL();
-    general_config.tx_queue_len = 255;
-    general_config.rx_queue_len = 255;
-
-    if (twai_driver_install(&general_config, &timing_config, &filter_config) == ESP_OK) {
-        ESP_LOGI(tag, "driver installed");
-    } else {
-        ESP_LOGE(tag, "driver installation failed");
-    }
-
-    if (twai_start() == ESP_OK) {
-        ESP_LOGI(tag, "driver started");
-    } else {
-        ESP_LOGE(tag, "driver start failed");
-    }
-
+    omni_libcan_main();
     isotp_event_queue_handle = xQueueCreateStatic(4, sizeof(struct isotp_event), isotp_event_queue_storage, &isotp_event_queue_buffer);
     isotp_unmatched_frame_queue_handle = xQueueCreateStatic(4, sizeof(twai_message_t), isotp_unmatched_frame_queue_storage, &isotp_unmatched_frame_queue_buffer);
     isotp_msg_queue_handle = xQueueCreateStatic(4, sizeof(struct isotp_msg), isotp_msg_queue_storage, &isotp_msg_queue_buffer);

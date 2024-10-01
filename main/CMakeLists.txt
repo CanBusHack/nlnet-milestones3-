@@ -4,6 +4,7 @@ idf_component_register(
   "ble.c"
   "hello.c"
   "isotp.c"
+  "libcan.c"
   "libnvs.c"
   "libvin.c"
   "ota.c"
