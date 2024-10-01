@@ -15,6 +15,7 @@
 
 #include <omnitrix/libnvs.h>
 #include <omnitrix/ota.h>
+#include <omnitrix/uuid.gen.h>
 
 #ifdef CONFIG_OMNITRIX_ENABLE_BLE
 #include <host/ble_att.h>
@@ -92,11 +93,11 @@ static int ota_end(void) {
 }
 
 #ifdef CONFIG_OMNITRIX_ENABLE_BLE
-/** BLE GATT service UUID for OTA (0ac32576-eeb0-4be5-8cc3-01cfd3a6c233) */
-static const ble_uuid128_t gatt_svr_svc_uuid = BLE_UUID128_INIT(0x33, 0xc2, 0xa6, 0xd3, 0xcf, 0x01, 0xc3, 0x8c, 0xe5, 0x4b, 0xb0, 0xee, 0x76, 0x25, 0xc3, 0x0a);
+/** BLE GATT service UUID for OTA */
+static const ble_uuid128_t gatt_svr_svc_uuid = CONFIG_OMNITRIX_OTA_SERVICE_UUID_INIT;
 
-/** BLE GATT characteristic UUID for OTA (324278c9-c3da-4c81-aaa0-b55c1211c4cc) */
-static const ble_uuid128_t gatt_svr_chr_uuid = BLE_UUID128_INIT(0xcc, 0xc4, 0x11, 0x12, 0x5c, 0xb5, 0xa0, 0xaa, 0x81, 0x4c, 0xda, 0xc3, 0xc9, 0x78, 0x42, 0x32);
+/** BLE GATT characteristic UUID for OTA */
+static const ble_uuid128_t gatt_svr_chr_uuid = CONFIG_OMNITRIX_OTA_CHARACTERISTIC_UUID_INIT;
 
 static uint16_t gatt_svr_chr_val_handle;
 
