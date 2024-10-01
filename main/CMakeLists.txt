@@ -7,7 +7,7 @@ idf_component_register(
   "libnvs.c"
   "libvin.c"
   "ota.c"
-  INCLUDE_DIRS
+  PRIV_INCLUDE_DIRS
   "include"
   PRIV_REQUIRES
   app_update

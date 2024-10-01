@@ -25,6 +25,9 @@
  * Apache License.
  */
 
+#include <sdkconfig.h>
+#ifdef CONFIG_OMNITRIX_ENABLE_BLE
+
 #include <assert.h>
 #include <esp_check.h>
 #include <esp_err.h>
@@ -255,3 +258,5 @@ void omni_ble_main(const struct ble_gatt_svc_def* const* args) {
 
     nimble_port_freertos_init(omni_ble_host_task);
 }
+
+#endif

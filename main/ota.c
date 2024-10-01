@@ -1,3 +1,6 @@
+#include <sdkconfig.h>
+#ifdef CONFIG_OMNITRIX_ENABLE_OTA
+
 #include <assert.h>
 #include <esp_err.h>
 #include <esp_log.h>
@@ -174,3 +177,5 @@ const struct ble_gatt_svc_def omni_ota_gatt_svr_svcs[] = {
 void omni_ota_main(void) {
     omni_libnvs_main();
 }
+
+#endif

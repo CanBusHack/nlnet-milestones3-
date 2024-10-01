@@ -1,3 +1,6 @@
+#include <sdkconfig.h>
+#ifdef CONFIG_OMNITRIX_ENABLE_HELLO
+
 #include <assert.h>
 #include <esp_err.h>
 #include <esp_log.h>
@@ -396,3 +399,5 @@ void omni_hello_main(void) {
     isotp_task_handle = xTaskCreateStatic(isotp_task, "isotp_task", sizeof(isotp_task_stack) / sizeof(isotp_task_stack[0]), NULL, 5, isotp_task_stack, &isotp_task_buffer);
     isotp_read_task_handle = xTaskCreateStatic(isotp_read_task, "isotp_read_task", sizeof(isotp_read_task_stack) / sizeof(isotp_read_task_stack[0]), NULL, 5, isotp_read_task_stack, &isotp_read_task_buffer);
 }
+
+#endif

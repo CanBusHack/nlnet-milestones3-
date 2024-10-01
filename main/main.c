@@ -4,18 +4,9 @@
 #include <esp_ota_ops.h>
 #include <esp_partition.h>
 
-#ifdef CONFIG_OMNITRIX_ENABLE_BLE
-#include <host/ble_gatt.h>
 #include <omnitrix/ble.h>
-#endif
-
-#ifdef CONFIG_OMNITRIX_ENABLE_OTA
-#include <omnitrix/ota.h>
-#endif
-
-#ifdef CONFIG_OMNITRIX_ENABLE_HELLO
 #include <omnitrix/hello.h>
-#endif
+#include <omnitrix/ota.h>
 
 static const char tag[] = "omnitrix";
 
