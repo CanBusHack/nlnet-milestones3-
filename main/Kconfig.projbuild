@@ -5,7 +5,7 @@ menu "Omnitrix config"
         default "BlinkCar Factory App v1.0"
 
     menuconfig OMNITRIX_ENABLE_BLE
-        depends on BT_NIMBLE_ENABLED || IDF_TARGET_LINUX
+        depends on BT_NIMBLE_ENABLED
         bool "Enable BLE component"
         default y
 
