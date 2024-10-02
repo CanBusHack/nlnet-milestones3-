@@ -13,40 +13,96 @@ enum Call {
     SetVoltage = 9;
     ReadVersion = 10;
     GetError = 11;
+    Ioctl = 12;
 }
 
-message ConnectParams {
-    uint32 protocol = 1;
-    uint32 flags = 2;
-    uint32 baud = 3;
+enum IoctlId {
+    InvalidIoctl = 0;
+    GetConfig = 1;
+    SetConfig = 2;
+    ReadVbatt = 3;
+    FiveBaudInit = 4;
+    FastInit = 5;
+    ClearTxBuffer = 7;
+    ClearRxBuffer = 8;
+    ClearPeriodic = 9;
+    ClearFilters = 10;
+    ClearLUT = 11;
+    AddLUT = 12;
+    DeleteLUT = 13;
+    ReadVoltage = 14;
 }
 
-message ConnectResult {
-    uint32 channel = 1;
-}
-
-message DisconnectParams {
-    uint32 channel = 1;
-}
-
-message GetErrorResult {
-    string error = 1;
-}
-
-message Request {
+message BaseRequest {
     uint32 id = 1;
     Call call = 2;
-    oneof params {
-        ConnectParams connect = 3;
-        DisconnectParams disconnect = 4;
-    }
 }
 
-message Response {
+message BaseResponse {
     uint32 id = 1;
-    uint32 code = 2;
-    oneof result {
-        ConnectResult connect = 3;
-        GetErrorResult error = 13;
-    }
+    Call call = 2;
+    uint32 code = 3;
+}
+
+message ConnectRequest {
+    uint32 id = 1;
+    Call call = 2;
+    uint32 protocol = 3;
+    uint32 flags = 4;
+    uint32 baud = 5;
+}
+
+message ConnectResponse {
+    uint32 id = 1;
+    Call call = 2;
+    uint32 code = 3;
+    uint32 channel = 4;
+}
+
+message DisconnectRequest {
+    uint32 id = 1;
+    Call call = 2;
+    uint32 channel = 3;
+}
+
+message SetVoltageRequest {
+    uint32 id = 1;
+    Call call = 2;
+    uint32 pin = 3;
+    uint32 voltage = 4;
+}
+
+message ReadVersionResponse {
+    uint32 id = 1;
+    Call call = 2;
+    uint32 code = 3;
+    string version = 4;
+}
+
+message GetErrorResponse {
+    uint32 id = 1;
+    Call call = 2;
+    uint32 code = 3;
+    string error = 4;
+}
+
+message IoctlRequest {
+    uint32 id = 1;
+    Call call = 2;
+    IoctlId ioctl = 3;
+}
+
+message IoctlResponse {
+    uint32 id = 1;
+    Call call = 2;
+    uint32 code = 3;
+    IoctlId ioctl = 4;
+}
+
+message IoctlReadVbattResponse {
+    uint32 id = 1;
+    Call call = 2;
+    uint32 code = 3;
+    IoctlId ioctl = 4;
+    uint32 voltage = 5;
 }

@@ -61,88 +61,220 @@ struct mem {
     uint16_t len;
 };
 
-static struct mem pack(struct Response* res) {
-    assert(res);
-    size_t sz = response__get_packed_size(res);
-    struct mem result = { 0 };
-    if (sz <= UINT16_MAX) {
-        result.buf = malloc(sz);
-        assert(result.buf);
-        result.len = sz;
-        response__pack(res, result.buf);
+#define PACK_AND_RETURN(name)                              \
+    do {                                                   \
+        size_t sz = name##_response__get_packed_size(res); \
+        struct mem result = { 0 };                         \
+        if (sz <= UINT16_MAX) {                            \
+            result.buf = malloc(sz);                       \
+            assert(result.buf);                            \
+            result.len = sz;                               \
+            name##_response__pack(res, result.buf);        \
+        }                                                  \
+        free(res);                                         \
+        return result;                                     \
+    } while (0)
+
+static struct mem process_connect(uint8_t* inbuf, size_t insz) {
+    assert(inbuf);
+    struct ConnectRequest* req = connect_request__unpack(NULL, insz, inbuf);
+    assert(req);
+    assert(req->call == CALL__Connect);
+
+    struct ConnectResponse* res = malloc(sizeof(struct ConnectResponse));
+    connect_response__init(res);
+    res->id = req->id;
+    res->call = CALL__Connect;
+    switch (req->protocol) {
+    case CAN:
+        if (!channels[0]) {
+            res->code = STATUS_NOERROR;
+            res->channel = 1;
+            channels[0] = true;
+        } else {
+            res->code = ERR_CHANNEL_IN_USE;
+        }
+        break;
+    case ISO15765:
+        if (!channels[1]) {
+            res->code = STATUS_NOERROR;
+            res->channel = 2;
+            channels[1] = true;
+        } else {
+            res->code = ERR_CHANNEL_IN_USE;
+        }
+        break;
+    default:
+        if (req->protocol && req->protocol < 11) {
+            res->code = ERR_NOT_SUPPORTED;
+        } else {
+            res->code = ERR_INVALID_PROTOCOL_ID;
+        }
+        break;
     }
-    return result;
+    connect_request__free_unpacked(req, NULL);
+
+    PACK_AND_RETURN(connect);
+}
+
+static struct mem process_disconnect(uint8_t* inbuf, size_t insz) {
+    return (struct mem) { 0 };
+}
+
+static struct mem process_read(uint8_t* inbuf, size_t insz) {
+    return (struct mem) { 0 };
+}
+
+static struct mem process_write(uint8_t* inbuf, size_t insz) {
+    return (struct mem) { 0 };
+}
+
+static struct mem process_start_periodic(uint8_t* inbuf, size_t insz) {
+    return (struct mem) { 0 };
+}
+
+static struct mem process_stop_periodic(uint8_t* inbuf, size_t insz) {
+    return (struct mem) { 0 };
+}
+
+static struct mem process_start_filter(uint8_t* inbuf, size_t insz) {
+    return (struct mem) { 0 };
+}
+
+static struct mem process_stop_filter(uint8_t* inbuf, size_t insz) {
+    return (struct mem) { 0 };
+}
+
+static struct mem process_set_voltage(uint8_t* inbuf, size_t insz) {
+    assert(inbuf);
+    struct SetVoltageRequest* req = set_voltage_request__unpack(NULL, insz, inbuf);
+    assert(req);
+    assert(req->call == CALL__SetVoltage);
+    base_request__free_unpacked(req, NULL);
+
+    struct BaseResponse* res = malloc(sizeof(struct BaseResponse));
+    base_response__init(res);
+    res->id = req->id;
+    res->call = CALL__SetVoltage;
+    res->code = ERR_NOT_SUPPORTED;
+
+    PACK_AND_RETURN(base);
+}
+
+static struct mem process_read_version(uint8_t* inbuf, size_t insz) {
+    assert(inbuf);
+    struct BaseRequest* req = base_request__unpack(NULL, insz, inbuf);
+    assert(req);
+    assert(req->call == CALL__ReadVersion);
+    base_request__free_unpacked(req, NULL);
+
+    struct ReadVersionResponse* res = malloc(sizeof(struct ReadVersionResponse));
+    read_version_response__init(res);
+    res->id = req->id;
+    res->call = CALL__Connect;
+    res->code = STATUS_NOERROR;
+    res->version = "00.01";
+
+    PACK_AND_RETURN(read_version);
+}
+
+static struct mem process_get_error(uint8_t* inbuf, size_t insz) {
+    assert(inbuf);
+    struct BaseRequest* req = base_request__unpack(NULL, insz, inbuf);
+    assert(req);
+    assert(req->call == CALL__GetError);
+    base_request__free_unpacked(req, NULL);
+
+    struct GetErrorResponse* res = malloc(sizeof(struct GetErrorResponse));
+    get_error_response__init(res);
+    res->id = req->id;
+    res->call = CALL__GetError;
+    res->code = STATUS_NOERROR;
+    res->error = "PassThruGetLastError is not set supported!";
+
+    PACK_AND_RETURN(get_error);
+}
+
+static struct mem process_ioctl_read_vbatt(uint8_t* inbuf, size_t insz) {
+    assert(inbuf);
+    struct IoctlRequest* req = ioctl_request__unpack(NULL, insz, inbuf);
+    assert(req);
+    assert(req->call == CALL__Ioctl);
+    assert(req->ioctl == IOCTL_ID__ReadVbatt);
+    ioctl_request__free_unpacked(req, NULL);
+
+    struct IoctlReadVbattResponse* res = malloc(sizeof(struct IoctlReadVbattResponse));
+    ioctl_read_vbatt_response__init(res);
+    res->id = req->id;
+    res->call = CALL__Ioctl;
+    res->code = STATUS_NOERROR;
+    res->ioctl = IOCTL_ID__ReadVbatt;
+    res->voltage = 12000;
+
+    PACK_AND_RETURN(ioctl_read_vbatt);
+}
+
+static struct mem process_ioctl(uint8_t* inbuf, size_t insz) {
+    assert(inbuf);
+    struct IoctlRequest* req = ioctl_request__unpack(NULL, insz, inbuf);
+    assert(req);
+    assert(req->call == CALL__Ioctl);
+    IoctlId ioctl = req->ioctl;
+    ioctl_request__free_unpacked(req, NULL);
+
+    switch (ioctl) {
+    case IOCTL_ID__ReadVbatt:
+        return process_ioctl_read_vbatt(inbuf, insz);
+    default:
+        break;
+    }
+
+    struct IoctlResponse* res = malloc(sizeof(struct IoctlResponse));
+    ioctl_response__init(res);
+    res->id = req->id;
+    res->call = CALL__Ioctl;
+    res->code = ERR_INVALID_IOCTL_ID;
+    res->ioctl = req->ioctl;
+
+    PACK_AND_RETURN(ioctl);
 }
 
 static struct mem process(uint8_t* inbuf, size_t insz) {
     assert(inbuf);
-    struct Request* req = request__unpack(NULL, insz, inbuf);
-    struct mem result = { 0 };
+    struct BaseRequest* req = base_request__unpack(NULL, insz, inbuf);
     if (req) {
-        struct Response* res = malloc(sizeof(struct Response));
-        assert(res);
-        response__init(res);
-        res->id = req->id;
-
-        switch (req->call) {
+        Call call = req->call;
+        base_request__free_unpacked(req, NULL);
+        switch (call) {
         case CALL__Connect:
-            assert(req->connect);
-            switch (req->connect->protocol) {
-            case CAN:
-                if (!channels[0]) {
-                    res->connect = malloc(sizeof(struct ConnectResult));
-                    assert(res->connect);
-                    connect_result__init(res->connect);
-                    res->connect->channel = 0;
-                    result = pack(res);
-                    free(res->connect);
-                    channels[0] = true;
-                } else {
-                    res->code = ERR_CHANNEL_IN_USE;
-                    result = pack(res);
-                }
-                break;
-            case ISO15765:
-                if (!channels[1]) {
-                    res->connect = malloc(sizeof(struct ConnectResult));
-                    assert(res->connect);
-                    connect_result__init(res->connect);
-                    res->connect->channel = 1;
-                    result = pack(res);
-                    free(res->connect);
-                    channels[1] = true;
-                } else {
-                    res->code = ERR_CHANNEL_IN_USE;
-                    result = pack(res);
-                }
-                break;
-            default:
-                if (req->connect->protocol < 11) {
-                    res->code = ERR_NOT_SUPPORTED;
-                } else {
-                    res->code = ERR_INVALID_PROTOCOL_ID;
-                }
-                result = pack(res);
-                break;
-            }
-            break;
+            return process_connect(inbuf, insz);
+        case CALL__Disconnect:
+            return process_disconnect(inbuf, insz);
+        case CALL__Read:
+            return process_read(inbuf, insz);
+        case CALL__Write:
+            return process_write(inbuf, insz);
+        case CALL__StartPeriodic:
+            return process_start_periodic(inbuf, insz);
+        case CALL__StopPeriodic:
+            return process_stop_periodic(inbuf, insz);
+        case CALL__StartFilter:
+            return process_start_filter(inbuf, insz);
+        case CALL__StopFilter:
+            return process_stop_filter(inbuf, insz);
+        case CALL__SetVoltage:
+            return process_set_voltage(inbuf, insz);
+        case CALL__ReadVersion:
+            return process_read_version(inbuf, insz);
         case CALL__GetError:
-            res->result_case = RESPONSE__RESULT_ERROR;
-            res->error = malloc(sizeof(struct GetErrorResult));
-            assert(res->error);
-            get_error_result__init(res->error);
-            res->error->error = "No error!";
-            result = pack(res);
-            free(res->error);
-            break;
+            return process_get_error(inbuf, insz);
+        case CALL__Ioctl:
+            return process_ioctl(inbuf, insz);
         default:
             break;
         }
-
-        free(res);
     }
-    request__free_unpacked(req, NULL);
-    return result;
+    return (struct mem) { 0 };
 }
 
 #ifdef CONFIG_OMNITRIX_ENABLE_BLE
