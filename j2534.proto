@@ -33,6 +33,20 @@ enum IoctlId {
     ReadVoltage = 14;
 }
 
+message Message {
+    uint32 protocol = 1;
+    uint32 rx_status = 2;
+    uint32 tx_flags = 3;
+    uint32 timestamp = 4;
+    uint32 extra_data_index = 5;
+    bytes data = 6;
+}
+
+message Config {
+    uint32 parameter = 1;
+    uint32 value = 2;
+}
+
 message BaseRequest {
     uint32 id = 1;
     Call call = 2;
@@ -65,6 +79,82 @@ message DisconnectRequest {
     uint32 channel = 3;
 }
 
+message ReadRequest {
+    uint32 id = 1;
+    Call call = 2;
+    uint32 channel = 3;
+    uint32 num = 4;
+    uint32 timeout = 5;
+}
+
+message ReadResponse {
+    uint32 id = 1;
+    Call call = 2;
+    uint32 code = 3;
+    repeated Message messages = 4;
+}
+
+message WriteRequest {
+    uint32 id = 1;
+    Call call = 2;
+    uint32 channel = 3;
+    repeated Message messages = 4;
+    uint32 timeout = 5;
+}
+
+message WriteResponse {
+    uint32 id = 1;
+    Call call = 2;
+    uint32 code = 3;
+    uint32 num = 4;
+}
+
+message StartPeriodicRequest {
+    uint32 id = 1;
+    Call call = 2;
+    uint32 channel = 3;
+    Message message = 4;
+    uint32 interval = 5;
+}
+
+message StartPeriodicResponse {
+    uint32 id = 1;
+    Call call = 2;
+    uint32 code = 3;
+    uint32 message_id = 4;
+}
+
+message StopPeriodicRequest {
+    uint32 id = 1;
+    Call call = 2;
+    uint32 channel = 3;
+    uint32 message_id = 4;
+}
+
+message StartFilterRequest {
+    uint32 id = 1;
+    Call call = 2;
+    uint32 channel = 3;
+    uint32 filter_type = 4;
+    Message mask = 5;
+    Message pattern = 6;
+    Message flow_control = 7;
+}
+
+message StartFilterResponse {
+    uint32 id = 1;
+    Call call = 2;
+    uint32 code = 3;
+    uint32 filter_id = 4;
+}
+
+message StopFilterRequest {
+    uint32 id = 1;
+    Call call = 2;
+    uint32 channel = 3;
+    uint32 filter_id = 4;
+}
+
 message SetVoltageRequest {
     uint32 id = 1;
     Call call = 2;
@@ -89,7 +179,8 @@ message GetErrorResponse {
 message IoctlRequest {
     uint32 id = 1;
     Call call = 2;
-    IoctlId ioctl = 3;
+    uint32 channel = 3;
+    IoctlId ioctl = 4;
 }
 
 message IoctlResponse {
@@ -97,6 +188,30 @@ message IoctlResponse {
     Call call = 2;
     uint32 code = 3;
     IoctlId ioctl = 4;
+}
+
+message IoctlGetConfigRequest {
+    uint32 id = 1;
+    Call call = 2;
+    uint32 channel = 3;
+    IoctlId ioctl = 4;
+    repeated Config config = 5;
+}
+
+message IoctlGetConfigResponse {
+    uint32 id = 1;
+    Call call = 2;
+    uint32 code = 3;
+    IoctlId ioctl = 4;
+    repeated Config config = 5;
+}
+
+message IoctlSetConfigRequest {
+    uint32 id = 1;
+    Call call = 2;
+    uint32 channel = 3;
+    IoctlId ioctl = 4;
+    repeated Config config = 5;
 }
 
 message IoctlReadVbattResponse {
