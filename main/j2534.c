@@ -54,6 +54,11 @@ enum {
     ERR_INVALID_DEVICE_ID = 26,
 };
 
+enum {
+    CH_CAN_1 = 0x314e4143,
+    CH_ISO15765_1 = 0x304f5349,
+};
+
 static bool channels[2] = { 0 };
 
 struct mem {
@@ -89,7 +94,7 @@ static struct mem process_connect(uint8_t* inbuf, size_t insz) {
     case CAN:
         if (!channels[0]) {
             res->code = STATUS_NOERROR;
-            res->channel = 1;
+            res->channel = CH_CAN_1;
             channels[0] = true;
         } else {
             res->code = ERR_CHANNEL_IN_USE;
@@ -98,7 +103,7 @@ static struct mem process_connect(uint8_t* inbuf, size_t insz) {
     case ISO15765:
         if (!channels[1]) {
             res->code = STATUS_NOERROR;
-            res->channel = 2;
+            res->channel = CH_ISO15765_1;
             channels[1] = true;
         } else {
             res->code = ERR_CHANNEL_IN_USE;
@@ -118,31 +123,135 @@ static struct mem process_connect(uint8_t* inbuf, size_t insz) {
 }
 
 static struct mem process_disconnect(uint8_t* inbuf, size_t insz) {
-    return (struct mem) { 0 };
+    assert(inbuf);
+    struct DisconnectRequest* req = disconnect_request__unpack(NULL, insz, inbuf);
+    assert(req);
+    assert(req->call == CALL__Disconnect);
+
+    struct BaseResponse* res = malloc(sizeof(struct BaseResponse));
+    base_response__init(res);
+    res->id = req->id;
+    res->call = CALL__Disconnect;
+    switch (req->channel) {
+    case CH_CAN_1:
+        if (channels[0]) {
+            res->code = STATUS_NOERROR;
+            channels[0] = false;
+        } else {
+            res->code = ERR_INVALID_CHANNEL_ID;
+        }
+        break;
+    case CH_ISO15765_1:
+        if (channels[1]) {
+            res->code = STATUS_NOERROR;
+            channels[1] = false;
+        } else {
+            res->code = ERR_INVALID_CHANNEL_ID;
+        }
+        break;
+    default:
+        res->code = ERR_INVALID_CHANNEL_ID;
+        break;
+    }
+    disconnect_request__free_unpacked(req, NULL);
+
+    PACK_AND_RETURN(base);
 }
 
 static struct mem process_read(uint8_t* inbuf, size_t insz) {
-    return (struct mem) { 0 };
+    assert(inbuf);
+    struct BaseRequest* req = base_request__unpack(NULL, insz, inbuf);
+    assert(req);
+    assert(req->call == CALL__Read);
+
+    struct BaseResponse* res = malloc(sizeof(struct BaseResponse));
+    base_response__init(res);
+    res->id = req->id;
+    res->call = CALL__Read;
+    res->code = ERR_NOT_SUPPORTED;
+    base_request__free_unpacked(req, NULL);
+
+    PACK_AND_RETURN(base);
 }
 
 static struct mem process_write(uint8_t* inbuf, size_t insz) {
-    return (struct mem) { 0 };
+    assert(inbuf);
+    struct BaseRequest* req = base_request__unpack(NULL, insz, inbuf);
+    assert(req);
+    assert(req->call == CALL__Write);
+
+    struct BaseResponse* res = malloc(sizeof(struct BaseResponse));
+    base_response__init(res);
+    res->id = req->id;
+    res->call = CALL__Write;
+    res->code = ERR_NOT_SUPPORTED;
+    base_request__free_unpacked(req, NULL);
+
+    PACK_AND_RETURN(base);
 }
 
 static struct mem process_start_periodic(uint8_t* inbuf, size_t insz) {
-    return (struct mem) { 0 };
+    assert(inbuf);
+    struct BaseRequest* req = base_request__unpack(NULL, insz, inbuf);
+    assert(req);
+    assert(req->call == CALL__StartPeriodic);
+
+    struct BaseResponse* res = malloc(sizeof(struct BaseResponse));
+    base_response__init(res);
+    res->id = req->id;
+    res->call = CALL__StartPeriodic;
+    res->code = ERR_NOT_SUPPORTED;
+    base_request__free_unpacked(req, NULL);
+
+    PACK_AND_RETURN(base);
 }
 
 static struct mem process_stop_periodic(uint8_t* inbuf, size_t insz) {
-    return (struct mem) { 0 };
+    assert(inbuf);
+    struct BaseRequest* req = base_request__unpack(NULL, insz, inbuf);
+    assert(req);
+    assert(req->call == CALL__StopPeriodic);
+
+    struct BaseResponse* res = malloc(sizeof(struct BaseResponse));
+    base_response__init(res);
+    res->id = req->id;
+    res->call = CALL__StopPeriodic;
+    res->code = ERR_NOT_SUPPORTED;
+    base_request__free_unpacked(req, NULL);
+
+    PACK_AND_RETURN(base);
 }
 
 static struct mem process_start_filter(uint8_t* inbuf, size_t insz) {
-    return (struct mem) { 0 };
+    assert(inbuf);
+    struct BaseRequest* req = base_request__unpack(NULL, insz, inbuf);
+    assert(req);
+    assert(req->call == CALL__StartFilter);
+
+    struct BaseResponse* res = malloc(sizeof(struct BaseResponse));
+    base_response__init(res);
+    res->id = req->id;
+    res->call = CALL__StartFilter;
+    res->code = ERR_NOT_SUPPORTED;
+    base_request__free_unpacked(req, NULL);
+
+    PACK_AND_RETURN(base);
 }
 
 static struct mem process_stop_filter(uint8_t* inbuf, size_t insz) {
-    return (struct mem) { 0 };
+    assert(inbuf);
+    struct BaseRequest* req = base_request__unpack(NULL, insz, inbuf);
+    assert(req);
+    assert(req->call == CALL__StopFilter);
+
+    struct BaseResponse* res = malloc(sizeof(struct BaseResponse));
+    base_response__init(res);
+    res->id = req->id;
+    res->call = CALL__StopFilter;
+    res->code = ERR_NOT_SUPPORTED;
+    base_request__free_unpacked(req, NULL);
+
+    PACK_AND_RETURN(base);
 }
 
 static struct mem process_set_voltage(uint8_t* inbuf, size_t insz) {
@@ -209,7 +318,7 @@ static struct mem process_ioctl_read_vbatt(uint8_t* inbuf, size_t insz) {
     res->call = CALL__Ioctl;
     res->code = STATUS_NOERROR;
     res->ioctl = IOCTL_ID__ReadVbatt;
-    res->voltage = 12000;
+    res->voltage = 13000;
 
     PACK_AND_RETURN(ioctl_read_vbatt);
 }
