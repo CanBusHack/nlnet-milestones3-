@@ -145,7 +145,7 @@ static void sync_cb(void) {
     scan();
 }
 
-TEST_CASE("BLE hello endpoint (handle)", "[ble][hello]") {
+TEST_CASE("CAN raw endpoint - read", "[ble][can]") {
     memset(&actual, 0, sizeof(actual));
 
     ble_hs_cfg.reset_cb = reset_cb;

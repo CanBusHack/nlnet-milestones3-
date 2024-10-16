@@ -9,6 +9,7 @@
 #include <omnitrix/ble.h>
 #include <omnitrix/uuid.gen.h>
 
+#include "isotp.h"
 #include "j2534.pb-c.h"
 
 enum {
@@ -222,25 +223,93 @@ static struct mem process_stop_periodic(uint8_t* inbuf, size_t insz) {
     PACK_AND_RETURN(base);
 }
 
+static void start_filter_can(StartFilterRequest* req, StartFilterResponse* res) {
+    (void)req;
+    (void)res;
+    switch (req->filter_type) {
+    case 1:
+        res->code = ERR_NOT_SUPPORTED;
+        break;
+    case 2:
+        res->code = ERR_NOT_SUPPORTED;
+        break;
+    default:
+        res->code = ERR_INVALID_FILTER_ID;
+    }
+}
+
+static void start_filter_iso(StartFilterRequest* req, StartFilterResponse* res) {
+    (void)req;
+    (void)res;
+    if (req->filter_type == 3) {
+        bool valid = req->pattern->tx_flags == req->flow_control->tx_flags
+            && req->pattern->data.len == req->flow_control->data.len
+            && req->pattern->data.len == ((req->pattern->tx_flags & 128) ? 5 : 4);
+        if (valid) {
+            for (int i = 0; i < ISOTP_MAX_PAIRS; i++) {
+                if (!isotp_addr_pairs[i].active) {
+                    isotp_addr_pairs[i].active = true;
+                    isotp_addr_pairs[i].txid
+                        = (req->flow_control->data.data[0] << 24)
+                        | (req->flow_control->data.data[1] << 16)
+                        | (req->flow_control->data.data[2] << 8)
+                        | req->flow_control->data.data[3]
+                        | ((req->flow_control->tx_flags & 128) << 23);
+                    isotp_addr_pairs[i].rxid
+                        = (req->pattern->data.data[0] << 24)
+                        | (req->pattern->data.data[1] << 16)
+                        | (req->pattern->data.data[2] << 8)
+                        | req->pattern->data.data[3]
+                        | ((req->pattern->tx_flags & 128) << 23);
+                    isotp_addr_pairs[i].txext = (req->flow_control->tx_flags & 128) ? req->flow_control->data.data[4] : 0;
+                    isotp_addr_pairs[i].txpad = 0xCC;
+                    isotp_addr_pairs[i].rxext = (req->pattern->tx_flags & 128) ? req->pattern->data.data[4] : 0;
+                    isotp_addr_pairs[i].rxpad = 0xCC;
+                    res->filter_id = i + 1;
+                    goto out;
+                }
+            }
+            res->code = ERR_EXCEEDED_LIMIT;
+            return;
+        out:
+            res->code = STATUS_NOERROR;
+        } else {
+            res->code = ERR_INVALID_MSG;
+        }
+    } else {
+        res->code = ERR_INVALID_FILTER_ID;
+    }
+}
+
 static struct mem process_start_filter(uint8_t* inbuf, size_t insz) {
     assert(inbuf);
-    struct BaseRequest* req = base_request__unpack(NULL, insz, inbuf);
+    struct StartFilterRequest* req = start_filter_request__unpack(NULL, insz, inbuf);
     assert(req);
     assert(req->call == CALL__StartFilter);
 
-    struct BaseResponse* res = malloc(sizeof(struct BaseResponse));
-    base_response__init(res);
+    struct StartFilterResponse* res = malloc(sizeof(struct StartFilterResponse));
+    start_filter_response__init(res);
     res->id = req->id;
     res->call = CALL__StartFilter;
-    res->code = ERR_NOT_SUPPORTED;
-    base_request__free_unpacked(req, NULL);
+    switch (req->channel) {
+    case CH_CAN_1:
+        start_filter_can(req, res);
+        break;
+    case CH_ISO15765_1:
+        start_filter_iso(req, res);
+        break;
+    default:
+        res->code = ERR_INVALID_CHANNEL_ID;
+        break;
+    }
+    start_filter_request__free_unpacked(req, NULL);
 
-    PACK_AND_RETURN(base);
+    PACK_AND_RETURN(start_filter);
 }
 
 static struct mem process_stop_filter(uint8_t* inbuf, size_t insz) {
     assert(inbuf);
-    struct BaseRequest* req = base_request__unpack(NULL, insz, inbuf);
+    struct StopFilterRequest* req = stop_filter_request__unpack(NULL, insz, inbuf);
     assert(req);
     assert(req->call == CALL__StopFilter);
 
@@ -248,7 +317,22 @@ static struct mem process_stop_filter(uint8_t* inbuf, size_t insz) {
     base_response__init(res);
     res->id = req->id;
     res->call = CALL__StopFilter;
-    res->code = ERR_NOT_SUPPORTED;
+    switch (req->channel) {
+    case CH_CAN_1:
+        res->code = ERR_INVALID_FILTER_ID;
+        break;
+    case CH_ISO15765_1:
+        if (req->filter_id - 1 < ISOTP_MAX_PAIRS && isotp_addr_pairs[req->filter_id - 1].active) {
+            isotp_addr_pairs[req->filter_id - 1].active = false;
+            res->code = STATUS_NOERROR;
+        } else {
+            res->code = ERR_INVALID_FILTER_ID;
+        }
+        break;
+    default:
+        res->code = ERR_INVALID_CHANNEL_ID;
+        break;
+    }
     base_request__free_unpacked(req, NULL);
 
     PACK_AND_RETURN(base);

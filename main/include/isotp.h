@@ -1,10 +1,23 @@
 #ifndef OMNI_HELLO_ISOTP_H_
 #define OMNI_HELLO_ISOTP_H_
 
+#include <stdbool.h>
 #include <stddef.h>
 #include <stdint.h>
 
-#define ISOTP_MAX_PAIRS 2
+#define ISOTP_MAX_PAIRS 20
+
+struct isotp_addr_pairs {
+    bool active;
+    uint32_t txid;
+    uint32_t rxid;
+    uint8_t txext;
+    uint8_t txpad;
+    uint8_t rxext;
+    uint8_t rxpad;
+};
+
+extern struct isotp_addr_pairs isotp_addr_pairs[ISOTP_MAX_PAIRS];
 
 enum isotp_event_type {
     EVENT_RECONFIGURE_PAIRS,
