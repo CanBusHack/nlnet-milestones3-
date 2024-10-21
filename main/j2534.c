@@ -7,6 +7,8 @@
 #include <stdlib.h>
 
 #include <omnitrix/ble.h>
+#include <omnitrix/j2534.h>
+#include <omnitrix/libcan.h>
 #include <omnitrix/uuid.gen.h>
 
 #include "isotp.h"
@@ -522,5 +524,9 @@ const struct ble_gatt_svc_def omni_j2534_gatt_svr_svcs[] = {
     },
 };
 #endif
+
+void omni_j2534_main(void) {
+    omni_libcan_main();
+}
 
 #endif

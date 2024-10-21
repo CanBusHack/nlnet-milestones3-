@@ -22,6 +22,7 @@ static StaticQueue_t can_msg_queue_buffer;
 static QueueHandle_t can_msg_queue_handle;
 
 static omni_libcan_incoming_handler* handlers[2] = { NULL, NULL };
+static bool initialized = false;
 
 static void can_dispatcher(void* ptr) {
     (void)ptr;
@@ -77,43 +78,46 @@ static void can_reader(void* ptr) {
 }
 
 void omni_libcan_main(void) {
-    twai_general_config_t general_config = TWAI_GENERAL_CONFIG_DEFAULT(GPIO_NUM_33, GPIO_NUM_34, TWAI_MODE_NORMAL);
-    twai_timing_config_t timing_config = TWAI_TIMING_CONFIG_500KBITS();
-    twai_filter_config_t filter_config = TWAI_FILTER_CONFIG_ACCEPT_ALL();
+    if (!initialized) {
+        twai_general_config_t general_config = TWAI_GENERAL_CONFIG_DEFAULT(GPIO_NUM_33, GPIO_NUM_34, TWAI_MODE_NORMAL);
+        twai_timing_config_t timing_config = TWAI_TIMING_CONFIG_500KBITS();
+        twai_filter_config_t filter_config = TWAI_FILTER_CONFIG_ACCEPT_ALL();
 
-    if (twai_driver_install(&general_config, &timing_config, &filter_config) == ESP_OK) {
-        ESP_LOGI(tag, "driver installed");
-    } else {
-        ESP_LOGE(tag, "driver installation failed");
+        if (twai_driver_install(&general_config, &timing_config, &filter_config) == ESP_OK) {
+            ESP_LOGI(tag, "driver installed");
+        } else {
+            ESP_LOGE(tag, "driver installation failed");
+        }
+
+        if (twai_start() == ESP_OK) {
+            ESP_LOGI(tag, "driver started");
+        } else {
+            ESP_LOGE(tag, "driver start failed");
+        }
+
+        can_msg_queue_handle = xQueueCreateStatic(
+            16,
+            sizeof(struct twai_message_timestamp),
+            can_msg_queue_storage,
+            &can_msg_queue_buffer);
+        can_reader_handle = xTaskCreateStatic(
+            can_reader,
+            "can_reader",
+            sizeof(can_reader_stack) / sizeof(can_reader_stack[0]),
+            NULL,
+            10,
+            can_reader_stack,
+            &can_reader_buffer);
+        can_dispatcher_handle = xTaskCreateStatic(
+            can_dispatcher,
+            "can_dispatcher",
+            sizeof(can_dispatcher_stack) / sizeof(can_dispatcher_stack[0]),
+            NULL,
+            5,
+            can_dispatcher_stack,
+            &can_dispatcher_buffer);
+        initialized = true;
     }
-
-    if (twai_start() == ESP_OK) {
-        ESP_LOGI(tag, "driver started");
-    } else {
-        ESP_LOGE(tag, "driver start failed");
-    }
-
-    can_msg_queue_handle = xQueueCreateStatic(
-        16,
-        sizeof(struct twai_message_timestamp),
-        can_msg_queue_storage,
-        &can_msg_queue_buffer);
-    can_reader_handle = xTaskCreateStatic(
-        can_reader,
-        "can_reader",
-        sizeof(can_reader_stack) / sizeof(can_reader_stack[0]),
-        NULL,
-        10,
-        can_reader_stack,
-        &can_reader_buffer);
-    can_dispatcher_handle = xTaskCreateStatic(
-        can_dispatcher,
-        "can_dispatcher",
-        sizeof(can_dispatcher_stack) / sizeof(can_dispatcher_stack[0]),
-        NULL,
-        5,
-        can_dispatcher_stack,
-        &can_dispatcher_buffer);
 }
 
 void omni_libcan_add_incoming_handler(omni_libcan_incoming_handler* handler) {

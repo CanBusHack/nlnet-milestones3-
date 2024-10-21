@@ -7,6 +7,7 @@ idf_component_register(
   "j2534.c"
   "j2534.pb-c.c"
   "libcan.c"
+  "libisotp.c"
   "libnvs.c"
   "libvin.c"
   "ota.c"
