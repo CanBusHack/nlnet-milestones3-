@@ -36,10 +36,6 @@ static StackType_t isotp_task_stack[4096];
 static StaticTask_t isotp_task_buffer;
 static TaskHandle_t isotp_task_handle;
 
-static StackType_t isotp_read_task_stack[4096];
-static StaticTask_t isotp_read_task_buffer;
-static TaskHandle_t isotp_read_task_handle;
-
 static uint8_t isotp_event_queue_storage[sizeof(struct isotp_event) * 4];
 static StaticQueue_t isotp_event_queue_buffer;
 static QueueHandle_t isotp_event_queue_handle;
@@ -123,48 +119,21 @@ static void isotp_task(void* ptr) {
     vTaskDelete(NULL);
 }
 
-static void isotp_read_task(void* ptr) {
-    for (;;) {
-        twai_message_t msg;
-        ESP_LOGI(tag, "waiting for next incoming frame...");
-        esp_err_t result = twai_receive(&msg, portMAX_DELAY);
-        switch (result) {
-        case ESP_OK:
-            if (msg.extd) {
-                ESP_LOGI(tag, "incoming frame received: ID=%08" PRIX32 ", DLC=%X, DATA=%02X%02X%02X%02X%02X%02X%02X%02X, EXTD=T", msg.identifier, msg.data_length_code, msg.data[0], msg.data[1], msg.data[2], msg.data[3], msg.data[4], msg.data[5], msg.data[6], msg.data[7]);
-            } else {
-                ESP_LOGI(tag, "incoming frame received: ID=%03" PRIX32 ", DLC=%X, DATA=%02X%02X%02X%02X%02X%02X%02X%02X, EXTD=F", msg.identifier, msg.data_length_code, msg.data[0], msg.data[1], msg.data[2], msg.data[3], msg.data[4], msg.data[5], msg.data[6], msg.data[7]);
-            }
-            struct isotp_event event = {
-                .type = EVENT_INCOMING_CAN,
-                .can = {
-                    .id = msg.identifier | (msg.extd << 31),
-                    .dlc = msg.data_length_code,
-                },
-            };
-            memcpy(event.can.data, msg.data, (msg.data_length_code < 8) ? msg.data_length_code : 8);
-            memcpy(event.can.frame, &msg, sizeof(msg));
-            if (xQueueSend(isotp_event_queue_handle, &event, 0) == pdTRUE) {
-                ESP_LOGI(tag, "queued incoming frame event");
-            } else {
-                ESP_LOGE(tag, "event queue error (full?)");
-            }
-            break;
-        case ESP_ERR_TIMEOUT:
-            ESP_LOGE(tag, "frame read failed: timeout");
-            break;
-        case ESP_ERR_INVALID_ARG:
-            ESP_LOGE(tag, "frame read failed: invalid argument");
-            break;
-        case ESP_ERR_INVALID_STATE:
-            ESP_LOGE(tag, "frame read failed: driver is not running or installed");
-            break;
-        default:
-            ESP_LOGE(tag, "frame read failed: unknown error");
-            break;
-        }
+static void isotp_read_handler(struct twai_message_timestamp* msg) {
+    struct isotp_event event = {
+        .type = EVENT_INCOMING_CAN,
+        .can = {
+            .id = msg->msg.identifier | (msg->msg.extd << 31),
+            .dlc = msg->msg.data_length_code,
+        },
+    };
+    memcpy(event.can.data, msg->msg.data, (msg->msg.data_length_code < 8) ? msg->msg.data_length_code : 8);
+    memcpy(event.can.frame, &msg->msg, sizeof(msg->msg));
+    if (xQueueSend(isotp_event_queue_handle, &event, 0) == pdTRUE) {
+        ESP_LOGI(tag, "queued incoming frame event");
+    } else {
+        ESP_LOGE(tag, "event queue error (full?)");
     }
-    vTaskDelete(NULL);
 }
 
 #ifdef CONFIG_OMNITRIX_ENABLE_BLE
@@ -377,11 +346,11 @@ const struct ble_gatt_svc_def omni_hello_gatt_svr_svcs[] = {
 
 void omni_hello_main(void) {
     omni_libcan_main();
+    omni_libcan_add_incoming_handler(isotp_read_handler);
     isotp_event_queue_handle = xQueueCreateStatic(4, sizeof(struct isotp_event), isotp_event_queue_storage, &isotp_event_queue_buffer);
     isotp_unmatched_frame_queue_handle = xQueueCreateStatic(4, sizeof(twai_message_t), isotp_unmatched_frame_queue_storage, &isotp_unmatched_frame_queue_buffer);
     isotp_msg_queue_handle = xQueueCreateStatic(4, sizeof(struct isotp_msg), isotp_msg_queue_storage, &isotp_msg_queue_buffer);
     isotp_task_handle = xTaskCreateStatic(isotp_task, "isotp_task", sizeof(isotp_task_stack) / sizeof(isotp_task_stack[0]), NULL, 5, isotp_task_stack, &isotp_task_buffer);
-    isotp_read_task_handle = xTaskCreateStatic(isotp_read_task, "isotp_read_task", sizeof(isotp_read_task_stack) / sizeof(isotp_read_task_stack[0]), NULL, 5, isotp_read_task_stack, &isotp_read_task_buffer);
 }
 
 #endif
