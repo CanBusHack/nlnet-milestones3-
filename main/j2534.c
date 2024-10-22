@@ -5,10 +5,12 @@
 #include <stdbool.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include <omnitrix/ble.h>
 #include <omnitrix/j2534.h>
 #include <omnitrix/libcan.h>
+#include <omnitrix/libisotp.h>
 #include <omnitrix/uuid.gen.h>
 
 #include "isotp.h"
@@ -161,36 +163,151 @@ static struct mem process_disconnect(uint8_t* inbuf, size_t insz) {
     PACK_AND_RETURN(base);
 }
 
+static uint8_t isotp_msg_queue_storage[sizeof(struct isotp_msg) * 4];
+static StaticQueue_t isotp_msg_queue_buffer;
+static QueueHandle_t isotp_msg_queue_handle;
+
+static void isotp_read_handler(struct isotp_msg* msg) {
+    // TODO: remove queues; notify instead
+    xQueueSend(isotp_msg_queue_handle, msg, 0);
+}
+
+static void read_iso(ReadRequest* req, ReadResponse* res) {
+    size_t count = 0;
+    Message** msgs = malloc(sizeof(Message*) * req->num);
+    assert(msgs);
+    for (count = 0; count < req->num; count++) {
+        msgs[count] = NULL;
+    }
+    res->code = STATUS_NOERROR;
+    for (count = 0; count < req->num; count++) {
+        struct isotp_msg msg;
+        if (xQueueReceive(isotp_msg_queue_handle, &msg, pdMS_TO_TICKS(100)) == pdTRUE) {
+            // TODO: use timeouts correctly
+            msgs[count] = malloc(sizeof(Message));
+            assert(msgs[count]);
+            message__init(msgs[count]);
+            msgs[count]->protocol = 6;
+            msgs[count]->data.len = msg.size;
+            msgs[count]->data.data = malloc(msg.size);
+            assert(msgs[count]->data.data);
+            memcpy(msgs[count]->data.data, msg.data, msg.size);
+        } else {
+            res->code = ERR_TIMEOUT;
+            break;
+        }
+    }
+    if (count != 0) {
+        res->messages = msgs;
+        res->n_messages = count;
+    } else {
+        res->code = ERR_BUFFER_EMPTY;
+        free(msgs);
+    }
+}
+
 static struct mem process_read(uint8_t* inbuf, size_t insz) {
     assert(inbuf);
-    struct BaseRequest* req = base_request__unpack(NULL, insz, inbuf);
+    struct ReadRequest* req = read_request__unpack(NULL, insz, inbuf);
     assert(req);
     assert(req->call == CALL__Read);
 
-    struct BaseResponse* res = malloc(sizeof(struct BaseResponse));
-    base_response__init(res);
+    struct ReadResponse* res = malloc(sizeof(struct ReadResponse));
+    read_response__init(res);
     res->id = req->id;
     res->call = CALL__Read;
-    res->code = ERR_NOT_SUPPORTED;
-    base_request__free_unpacked(req, NULL);
+    switch (req->channel) {
+    case CH_CAN_1:
+        if (channels[0]) {
+            res->code = ERR_NOT_SUPPORTED;
+        } else {
+            res->code = ERR_INVALID_CHANNEL_ID;
+        }
+        break;
+    case CH_ISO15765_1:
+        if (channels[1]) {
+            read_iso(req, res);
+        } else {
+            res->code = ERR_INVALID_CHANNEL_ID;
+        }
+        break;
+    default:
+        res->code = ERR_INVALID_CHANNEL_ID;
+        break;
+    }
+    read_request__free_unpacked(req, NULL);
 
-    PACK_AND_RETURN(base);
+    size_t sz = read_response__get_packed_size(res);
+    struct mem result = { 0 };
+    if (sz <= UINT16_MAX) {
+        result.buf = malloc(sz);
+        assert(result.buf);
+        result.len = sz;
+        read_response__pack(res, result.buf);
+    }
+    if (res->messages) {
+        for (size_t i = 0; i < res->n_messages; i++) {
+            if (res->messages[i]) {
+                if (res->messages[i]->data.data) {
+                    free(res->messages[i]->data.data);
+                }
+                free(res->messages[i]);
+            }
+        }
+        free(res->messages);
+    }
+    free(res);
+    return result;
+}
+
+static void write_iso(WriteRequest* req, WriteResponse* res) {
+    static struct isotp_event event;
+    for (size_t i = 0; i < req->n_messages; i++) {
+        event.type = EVENT_WRITE_MSG;
+        event.msg.size = req->messages[i]->data.len;
+        memcpy(event.msg.data, req->messages[i]->data.data, event.msg.size);
+        if (xQueueSend(isotp_event_queue_handle, &event, 0) != pdTRUE) {
+            res->code = ERR_BUFFER_FULL;
+            res->num = i + 1;
+            return;
+        }
+    }
+    res->code = STATUS_NOERROR;
+    res->num = req->n_messages;
 }
 
 static struct mem process_write(uint8_t* inbuf, size_t insz) {
     assert(inbuf);
-    struct BaseRequest* req = base_request__unpack(NULL, insz, inbuf);
+    struct WriteRequest* req = write_request__unpack(NULL, insz, inbuf);
     assert(req);
     assert(req->call == CALL__Write);
 
-    struct BaseResponse* res = malloc(sizeof(struct BaseResponse));
-    base_response__init(res);
+    struct WriteResponse* res = malloc(sizeof(struct WriteResponse));
+    write_response__init(res);
     res->id = req->id;
     res->call = CALL__Write;
-    res->code = ERR_NOT_SUPPORTED;
-    base_request__free_unpacked(req, NULL);
+    switch (req->channel) {
+    case CH_CAN_1:
+        if (channels[0]) {
+            res->code = ERR_NOT_SUPPORTED;
+        } else {
+            res->code = ERR_INVALID_CHANNEL_ID;
+        }
+        break;
+    case CH_ISO15765_1:
+        if (channels[1]) {
+            write_iso(req, res);
+        } else {
+            res->code = ERR_INVALID_CHANNEL_ID;
+        }
+        break;
+    default:
+        res->code = ERR_INVALID_CHANNEL_ID;
+        break;
+    }
+    write_request__free_unpacked(req, NULL);
 
-    PACK_AND_RETURN(base);
+    PACK_AND_RETURN(write);
 }
 
 static struct mem process_start_periodic(uint8_t* inbuf, size_t insz) {
@@ -527,6 +644,9 @@ const struct ble_gatt_svc_def omni_j2534_gatt_svr_svcs[] = {
 
 void omni_j2534_main(void) {
     omni_libcan_main();
+    omni_libisotp_main();
+    omni_libisotp_add_incoming_handler(isotp_read_handler);
+    isotp_msg_queue_handle = xQueueCreateStatic(4, sizeof(struct isotp_msg), isotp_msg_queue_storage, &isotp_msg_queue_buffer);
 }
 
 #endif

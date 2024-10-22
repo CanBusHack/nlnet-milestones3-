@@ -4,7 +4,6 @@
 #include <assert.h>
 #include <esp_err.h>
 #include <esp_log.h>
-#include <inttypes.h>
 #include <stdbool.h>
 #include <stdint.h>
 #include <string.h>
