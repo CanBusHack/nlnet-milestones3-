@@ -462,13 +462,13 @@ static struct mem process_set_voltage(uint8_t* inbuf, size_t insz) {
     struct SetVoltageRequest* req = set_voltage_request__unpack(NULL, insz, inbuf);
     assert(req);
     assert(req->call == CALL__SetVoltage);
-    base_request__free_unpacked(req, NULL);
 
     struct BaseResponse* res = malloc(sizeof(struct BaseResponse));
     base_response__init(res);
     res->id = req->id;
     res->call = CALL__SetVoltage;
     res->code = ERR_NOT_SUPPORTED;
+    base_request__free_unpacked(req, NULL);
 
     PACK_AND_RETURN(base);
 }
@@ -478,7 +478,6 @@ static struct mem process_read_version(uint8_t* inbuf, size_t insz) {
     struct BaseRequest* req = base_request__unpack(NULL, insz, inbuf);
     assert(req);
     assert(req->call == CALL__ReadVersion);
-    base_request__free_unpacked(req, NULL);
 
     struct ReadVersionResponse* res = malloc(sizeof(struct ReadVersionResponse));
     read_version_response__init(res);
@@ -486,6 +485,7 @@ static struct mem process_read_version(uint8_t* inbuf, size_t insz) {
     res->call = CALL__ReadVersion;
     res->code = STATUS_NOERROR;
     res->version = "00.01";
+    base_request__free_unpacked(req, NULL);
 
     PACK_AND_RETURN(read_version);
 }
@@ -495,7 +495,6 @@ static struct mem process_get_error(uint8_t* inbuf, size_t insz) {
     struct BaseRequest* req = base_request__unpack(NULL, insz, inbuf);
     assert(req);
     assert(req->call == CALL__GetError);
-    base_request__free_unpacked(req, NULL);
 
     struct GetErrorResponse* res = malloc(sizeof(struct GetErrorResponse));
     get_error_response__init(res);
@@ -503,6 +502,7 @@ static struct mem process_get_error(uint8_t* inbuf, size_t insz) {
     res->call = CALL__GetError;
     res->code = STATUS_NOERROR;
     res->error = "PassThruGetLastError is not set supported!";
+    base_request__free_unpacked(req, NULL);
 
     PACK_AND_RETURN(get_error);
 }
@@ -513,7 +513,6 @@ static struct mem process_ioctl_read_vbatt(uint8_t* inbuf, size_t insz) {
     assert(req);
     assert(req->call == CALL__Ioctl);
     assert(req->ioctl == IOCTL_ID__ReadVbatt);
-    ioctl_request__free_unpacked(req, NULL);
 
     struct IoctlReadVbattResponse* res = malloc(sizeof(struct IoctlReadVbattResponse));
     ioctl_read_vbatt_response__init(res);
@@ -522,6 +521,7 @@ static struct mem process_ioctl_read_vbatt(uint8_t* inbuf, size_t insz) {
     res->code = STATUS_NOERROR;
     res->ioctl = IOCTL_ID__ReadVbatt;
     res->voltage = 13000;
+    ioctl_request__free_unpacked(req, NULL);
 
     PACK_AND_RETURN(ioctl_read_vbatt);
 }
@@ -532,10 +532,10 @@ static struct mem process_ioctl(uint8_t* inbuf, size_t insz) {
     assert(req);
     assert(req->call == CALL__Ioctl);
     IoctlId ioctl = req->ioctl;
-    ioctl_request__free_unpacked(req, NULL);
 
     switch (ioctl) {
     case IOCTL_ID__ReadVbatt:
+        ioctl_request__free_unpacked(req, NULL);
         return process_ioctl_read_vbatt(inbuf, insz);
     default:
         break;
@@ -547,6 +547,7 @@ static struct mem process_ioctl(uint8_t* inbuf, size_t insz) {
     res->call = CALL__Ioctl;
     res->code = ERR_INVALID_IOCTL_ID;
     res->ioctl = req->ioctl;
+    ioctl_request__free_unpacked(req, NULL);
 
     PACK_AND_RETURN(ioctl);
 }
