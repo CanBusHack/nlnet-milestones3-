@@ -483,7 +483,7 @@ static struct mem process_read_version(uint8_t* inbuf, size_t insz) {
     struct ReadVersionResponse* res = malloc(sizeof(struct ReadVersionResponse));
     read_version_response__init(res);
     res->id = req->id;
-    res->call = CALL__Connect;
+    res->call = CALL__ReadVersion;
     res->code = STATUS_NOERROR;
     res->version = "00.01";
 
