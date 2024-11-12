@@ -163,7 +163,7 @@ static struct mem process_disconnect(uint8_t* inbuf, size_t insz) {
     PACK_AND_RETURN(base);
 }
 
-static uint8_t isotp_msg_queue_storage[sizeof(struct isotp_msg) * 4];
+static struct isotp_msg isotp_msg_queue_storage[4];
 static StaticQueue_t isotp_msg_queue_buffer;
 static QueueHandle_t isotp_msg_queue_handle;
 
@@ -647,7 +647,7 @@ void omni_j2534_main(void) {
     omni_libcan_main();
     omni_libisotp_main();
     omni_libisotp_add_incoming_handler(isotp_read_handler);
-    isotp_msg_queue_handle = xQueueCreateStatic(4, sizeof(struct isotp_msg), isotp_msg_queue_storage, &isotp_msg_queue_buffer);
+    isotp_msg_queue_handle = xQueueCreateStatic(4, sizeof(struct isotp_msg), (uint8_t*)isotp_msg_queue_storage, &isotp_msg_queue_buffer);
 }
 
 #endif

@@ -68,4 +68,9 @@ void app_main(void) {
     ESP_LOGI(tag, "starting Hello World");
     omni_hello_main();
 #endif
+
+#ifdef CONFIG_OMNITRIX_ENABLE_J2534
+    ESP_LOGI(tag, "starting J2534");
+    omni_j2534_main();
+#endif
 }
