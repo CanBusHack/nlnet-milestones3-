@@ -97,22 +97,19 @@ static struct mem process_connect(uint8_t* inbuf, size_t insz) {
     res->call = CALL__Connect;
     switch (req->protocol) {
     case CAN:
-        if (!channels[0]) {
-            res->code = STATUS_NOERROR;
-            res->channel = CH_CAN_1;
-            channels[0] = true;
-        } else {
-            res->code = ERR_CHANNEL_IN_USE;
-        }
+        res->code = STATUS_NOERROR;
+        res->channel = CH_CAN_1;
+        channels[0] = true;
         break;
     case ISO15765:
-        if (!channels[1]) {
-            res->code = STATUS_NOERROR;
-            res->channel = CH_ISO15765_1;
-            channels[1] = true;
-        } else {
-            res->code = ERR_CHANNEL_IN_USE;
+        if (channels[1]) {
+            for (int i = 0; i < ISOTP_MAX_PAIRS; i++) {
+                isotp_addr_pairs[i].active = false;
+            }
         }
+        res->code = STATUS_NOERROR;
+        res->channel = CH_ISO15765_1;
+        channels[1] = true;
         break;
     default:
         if (req->protocol && req->protocol < 11) {
@@ -148,6 +145,9 @@ static struct mem process_disconnect(uint8_t* inbuf, size_t insz) {
         break;
     case CH_ISO15765_1:
         if (channels[1]) {
+            for (int i = 0; i < ISOTP_MAX_PAIRS; i++) {
+                isotp_addr_pairs[i].active = false;
+            }
             res->code = STATUS_NOERROR;
             channels[1] = false;
         } else {
