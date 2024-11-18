@@ -77,24 +77,42 @@ static void can_reader(void* ptr) {
     vTaskDelete(NULL);
 }
 
+static twai_general_config_t general_config = TWAI_GENERAL_CONFIG_DEFAULT(GPIO_NUM_33, GPIO_NUM_34, TWAI_MODE_NORMAL);
+static twai_timing_config_t timing_config = TWAI_TIMING_CONFIG_500KBITS();
+static uint32_t filters_or = 0;
+static uint32_t mask_or = 0;
+static twai_filter_config_t filter_config = {
+    .acceptance_code = 0xFFFFFFFF,
+    .acceptance_mask = 0,
+    .single_filter = true,
+};
+
+static void reinstall(void) {
+    vTaskDelete(can_reader_handle);
+    twai_stop();
+    twai_driver_uninstall();
+    if (twai_driver_install(&general_config, &timing_config, &filter_config) == ESP_OK) {
+        ESP_LOGI(tag, "driver installed");
+    } else {
+        ESP_LOGE(tag, "driver installation failed");
+    }
+    if (twai_start() == ESP_OK) {
+        ESP_LOGI(tag, "driver started");
+    } else {
+        ESP_LOGE(tag, "driver start failed");
+    }
+    can_reader_handle = xTaskCreateStatic(
+        can_reader,
+        "can_reader",
+        sizeof(can_reader_stack) / sizeof(can_reader_stack[0]),
+        NULL,
+        10,
+        can_reader_stack,
+        &can_reader_buffer);
+}
+
 void omni_libcan_main(void) {
     if (!initialized) {
-        twai_general_config_t general_config = TWAI_GENERAL_CONFIG_DEFAULT(GPIO_NUM_33, GPIO_NUM_34, TWAI_MODE_NORMAL);
-        twai_timing_config_t timing_config = TWAI_TIMING_CONFIG_500KBITS();
-        twai_filter_config_t filter_config = TWAI_FILTER_CONFIG_ACCEPT_ALL();
-
-        if (twai_driver_install(&general_config, &timing_config, &filter_config) == ESP_OK) {
-            ESP_LOGI(tag, "driver installed");
-        } else {
-            ESP_LOGE(tag, "driver installation failed");
-        }
-
-        if (twai_start() == ESP_OK) {
-            ESP_LOGI(tag, "driver started");
-        } else {
-            ESP_LOGE(tag, "driver start failed");
-        }
-
         can_msg_queue_handle = xQueueCreateStatic(
             16,
             sizeof(struct twai_message_timestamp),
@@ -108,6 +126,7 @@ void omni_libcan_main(void) {
             10,
             can_reader_stack,
             &can_reader_buffer);
+        reinstall();
         can_dispatcher_handle = xTaskCreateStatic(
             can_dispatcher,
             "can_dispatcher",
@@ -126,4 +145,22 @@ void omni_libcan_add_incoming_handler(omni_libcan_incoming_handler* handler) {
     } else if (!handlers[1]) {
         handlers[1] = handler;
     }
+}
+
+void omni_libcan_add_filter(uint32_t id, bool extd) {
+    uint32_t filter = extd ? (id << 3) : (id << 21);
+    filter_config.acceptance_code &= filter;
+    filters_or |= filter;
+    mask_or |= extd ? 7 : 0x1FFFFF;
+    filter_config.acceptance_mask = (filters_or & (~filter_config.acceptance_code)) | mask_or;
+    ESP_LOGI(tag, "filter: %08" PRIX32 ", mask: %08" PRIX32, filter_config.acceptance_code, filter_config.acceptance_mask);
+    reinstall();
+}
+
+void omni_libcan_clear_filter(void) {
+    filter_config.acceptance_code = 0xFFFFFFFF;
+    filters_or = 0;
+    mask_or = 0;
+    filter_config.acceptance_mask = 0;
+    reinstall();
 }

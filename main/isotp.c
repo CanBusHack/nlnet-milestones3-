@@ -4,6 +4,8 @@
 #include <stdint.h>
 #include <string.h>
 
+#include <omnitrix/libcan.h>
+
 #include "isotp.h"
 
 #define CAN_DEBUG 1
@@ -253,6 +255,7 @@ void isotp_event_loop(isotp_event_cb* get_next_event, isotp_unmatched_frame* unm
             for (int i = 0; i < ISOTP_MAX_PAIRS; i++) {
                 memset(isotp_addr_pairs + i, 0, sizeof(isotp_addr_pairs[0]));
             }
+            omni_libcan_clear_filter();
             assert(evt.pairs.size % 12 == 0);
             assert(evt.pairs.size / 12 <= ISOTP_MAX_PAIRS);
             for (int i = 0, j = 0; i + 11 < evt.pairs.size && j < ISOTP_MAX_PAIRS; i += 12, j++) {
@@ -263,6 +266,7 @@ void isotp_event_loop(isotp_event_cb* get_next_event, isotp_unmatched_frame* unm
                 isotp_addr_pairs[j].rxid = (evt.pairs.data[i + 6] << 24) | (evt.pairs.data[i + 7] << 16) | (evt.pairs.data[i + 8] << 8) | evt.pairs.data[i + 9];
                 isotp_addr_pairs[j].rxext = evt.pairs.data[i + 10];
                 isotp_addr_pairs[j].rxpad = evt.pairs.data[i + 11];
+                omni_libcan_add_filter(isotp_addr_pairs[j].rxid & 0x1FFFFFFF, (isotp_addr_pairs[j].rxid & 0x80000000) != 0);
             }
             break;
         }
