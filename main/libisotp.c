@@ -37,6 +37,7 @@ static TaskHandle_t isotp_dispatch_u_handle;
 
 static omni_libisotp_incoming_handler* handlers[2] = { NULL, NULL };
 static omni_libisotp_unmatched_handler* u_handlers[2] = { NULL, NULL };
+static bool initialized = false;
 
 static void get_next_event(struct isotp_event* evt) {
     assert(evt);
@@ -156,14 +157,17 @@ static void isotp_dispatch_u(void* ptr) {
 }
 
 void omni_libisotp_main(void) {
-    omni_libcan_main();
-    omni_libcan_add_incoming_handler(isotp_read_handler);
-    isotp_event_queue_handle = xQueueCreateStatic(4, sizeof(struct isotp_event), isotp_event_queue_storage, &isotp_event_queue_buffer);
-    isotp_unmatched_frame_queue_handle = xQueueCreateStatic(4, sizeof(struct twai_message_timestamp), isotp_unmatched_frame_queue_storage, &isotp_unmatched_frame_queue_buffer);
-    isotp_msg_queue_handle = xQueueCreateStatic(4, sizeof(struct isotp_msg), isotp_msg_queue_storage, &isotp_msg_queue_buffer);
-    isotp_task_handle = xTaskCreateStatic(isotp_task, "isotp_task", sizeof(isotp_task_stack) / sizeof(isotp_task_stack[0]), NULL, 9, isotp_task_stack, &isotp_task_buffer);
-    isotp_dispatch_handle = xTaskCreateStatic(isotp_dispatch, "isotp_dispatch", sizeof(isotp_dispatch_stack) / sizeof(isotp_dispatch_stack[0]), NULL, 5, isotp_dispatch_stack, &isotp_dispatch_buffer);
-    isotp_dispatch_handle = xTaskCreateStatic(isotp_dispatch_u, "isotp_dispatch_u", sizeof(isotp_dispatch_u_stack) / sizeof(isotp_dispatch_u_stack[0]), NULL, 5, isotp_dispatch_u_stack, &isotp_dispatch_u_buffer);
+    if (!initialized) {
+        omni_libcan_main();
+        omni_libcan_add_incoming_handler(isotp_read_handler);
+        isotp_event_queue_handle = xQueueCreateStatic(4, sizeof(struct isotp_event), isotp_event_queue_storage, &isotp_event_queue_buffer);
+        isotp_unmatched_frame_queue_handle = xQueueCreateStatic(4, sizeof(struct twai_message_timestamp), isotp_unmatched_frame_queue_storage, &isotp_unmatched_frame_queue_buffer);
+        isotp_msg_queue_handle = xQueueCreateStatic(4, sizeof(struct isotp_msg), isotp_msg_queue_storage, &isotp_msg_queue_buffer);
+        isotp_task_handle = xTaskCreateStatic(isotp_task, "isotp_task", sizeof(isotp_task_stack) / sizeof(isotp_task_stack[0]), NULL, 9, isotp_task_stack, &isotp_task_buffer);
+        isotp_dispatch_handle = xTaskCreateStatic(isotp_dispatch, "isotp_dispatch", sizeof(isotp_dispatch_stack) / sizeof(isotp_dispatch_stack[0]), NULL, 5, isotp_dispatch_stack, &isotp_dispatch_buffer);
+        isotp_dispatch_handle = xTaskCreateStatic(isotp_dispatch_u, "isotp_dispatch_u", sizeof(isotp_dispatch_u_stack) / sizeof(isotp_dispatch_u_stack[0]), NULL, 5, isotp_dispatch_u_stack, &isotp_dispatch_u_buffer);
+        initialized = true;
+    }
 }
 
 void omni_libisotp_add_incoming_handler(omni_libisotp_incoming_handler* handler) {
