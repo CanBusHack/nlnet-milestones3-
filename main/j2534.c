@@ -61,7 +61,7 @@ enum {
 
 enum {
     CH_CAN_1 = 0x314e4143,
-    CH_ISO15765_1 = 0x304f5349,
+    CH_ISO15765_1 = 0x314f5349,
 };
 
 static bool channels[2] = { 0 };
@@ -385,6 +385,7 @@ static void start_filter_iso(StartFilterRequest* req, StartFilterResponse* res) 
                     isotp_addr_pairs[i].rxext = (req->pattern->tx_flags & 128) ? req->pattern->data.data[4] : 0;
                     isotp_addr_pairs[i].rxpad = 0xCC;
                     res->filter_id = i + 1;
+                    omni_libcan_add_filter(isotp_addr_pairs[i].rxid & 0x1FFFFFFF, (isotp_addr_pairs[i].rxid & 0x80000000) != 0);
                     goto out;
                 }
             }
