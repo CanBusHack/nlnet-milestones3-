@@ -21,6 +21,10 @@ static uint8_t can_msg_queue_storage[sizeof(struct twai_message_timestamp) * 16]
 static StaticQueue_t can_msg_queue_buffer;
 static QueueHandle_t can_msg_queue_handle;
 
+static uint32_t filter = 0xFFFFFFFF;
+static uint32_t filters_or = 0;
+static uint32_t mask = 0xFFFFFFFF;
+
 static omni_libcan_incoming_handler* handlers[2] = { NULL, NULL };
 static bool initialized = false;
 
@@ -40,37 +44,50 @@ static void can_dispatcher(void* ptr) {
     vTaskDelete(NULL);
 }
 
-static void can_reader(void* ptr) {
+// for extreme debugging only, potentially a major performance hit
+//#define CAN_LOGI(...) ESP_LOGI(__VA_ARGS__)
+//#define CAN_LOGE(...) ESP_LOGE(__VA_ARGS__)
+#define CAN_LOGI(...)
+#define CAN_LOGE(...)
+
+__attribute__((optimize("Ofast"))) static void can_reader(void* ptr) {
     (void)ptr;
     for (;;) {
         struct twai_message_timestamp msg;
-        ESP_LOGI(tag, "waiting for next incoming frame...");
+        CAN_LOGI(tag, "waiting for next incoming frame...");
         esp_err_t result = twai_receive(&msg.msg, portMAX_DELAY);
         switch (result) {
-        case ESP_OK:
+        case ESP_OK: {
             if (msg.msg.extd) {
-                ESP_LOGI(tag, "incoming frame received: ID=%08" PRIX32 ", DLC=%X, DATA=%02X%02X%02X%02X%02X%02X%02X%02X, EXTD=T", msg.msg.identifier, msg.msg.data_length_code, msg.msg.data[0], msg.msg.data[1], msg.msg.data[2], msg.msg.data[3], msg.msg.data[4], msg.msg.data[5], msg.msg.data[6], msg.msg.data[7]);
+                CAN_LOGI(tag, "incoming frame received: ID=%08" PRIX32 ", DLC=%X, DATA=%02X%02X%02X%02X%02X%02X%02X%02X, EXTD=T", msg.msg.identifier, msg.msg.data_length_code, msg.msg.data[0], msg.msg.data[1], msg.msg.data[2], msg.msg.data[3], msg.msg.data[4], msg.msg.data[5], msg.msg.data[6], msg.msg.data[7]);
             } else {
-                ESP_LOGI(tag, "incoming frame received: ID=%03" PRIX32 ", DLC=%X, DATA=%02X%02X%02X%02X%02X%02X%02X%02X, EXTD=F", msg.msg.identifier, msg.msg.data_length_code, msg.msg.data[0], msg.msg.data[1], msg.msg.data[2], msg.msg.data[3], msg.msg.data[4], msg.msg.data[5], msg.msg.data[6], msg.msg.data[7]);
+                CAN_LOGI(tag, "incoming frame received: ID=%03" PRIX32 ", DLC=%X, DATA=%02X%02X%02X%02X%02X%02X%02X%02X, EXTD=F", msg.msg.identifier, msg.msg.data_length_code, msg.msg.data[0], msg.msg.data[1], msg.msg.data[2], msg.msg.data[3], msg.msg.data[4], msg.msg.data[5], msg.msg.data[6], msg.msg.data[7]);
             }
-            gettimeofday(&msg.time, NULL);
-            if (xQueueSend(can_msg_queue_handle, &msg, 0) == pdTRUE) {
-                ESP_LOGI(tag, "queued incoming frame event");
+            uint32_t id = msg.msg.identifier | (msg.msg.extd ? 0x80000000 : 0);
+            if ((id & mask) == filter) {
+                CAN_LOGI(tag, "matched filter");
+                gettimeofday(&msg.time, NULL);
+                if (xQueueSend(can_msg_queue_handle, &msg, 0) == pdTRUE) {
+                    CAN_LOGI(tag, "queued incoming frame event");
+                } else {
+                    CAN_LOGE(tag, "event queue error (full?)");
+                }
             } else {
-                ESP_LOGE(tag, "event queue error (full?)");
+                CAN_LOGI(tag, "unmatched filter");
             }
             break;
+        }
         case ESP_ERR_TIMEOUT:
-            ESP_LOGE(tag, "frame read failed: timeout");
+            CAN_LOGE(tag, "frame read failed: timeout");
             break;
         case ESP_ERR_INVALID_ARG:
-            ESP_LOGE(tag, "frame read failed: invalid argument");
+            CAN_LOGE(tag, "frame read failed: invalid argument");
             break;
         case ESP_ERR_INVALID_STATE:
-            ESP_LOGE(tag, "frame read failed: driver is not running or installed");
+            CAN_LOGE(tag, "frame read failed: driver is not running or installed");
             break;
         default:
-            ESP_LOGE(tag, "frame read failed: unknown error");
+            CAN_LOGE(tag, "frame read failed: unknown error");
             break;
         }
     }
@@ -79,13 +96,7 @@ static void can_reader(void* ptr) {
 
 static twai_general_config_t general_config = TWAI_GENERAL_CONFIG_DEFAULT(GPIO_NUM_33, GPIO_NUM_34, TWAI_MODE_NORMAL);
 static twai_timing_config_t timing_config = TWAI_TIMING_CONFIG_500KBITS();
-static uint32_t filters_or = 0;
-static uint32_t mask_or = 0;
-static twai_filter_config_t filter_config = {
-    .acceptance_code = 0xFFFFFFFF,
-    .acceptance_mask = 0,
-    .single_filter = true,
-};
+static twai_filter_config_t filter_config = TWAI_FILTER_CONFIG_ACCEPT_ALL();
 
 static void reinstall(void) {
     vTaskDelete(can_reader_handle);
@@ -157,19 +168,14 @@ void omni_libcan_add_incoming_handler(omni_libcan_incoming_handler* handler) {
 }
 
 void omni_libcan_add_filter(uint32_t id, bool extd) {
-    uint32_t filter = extd ? (id << 3) : (id << 21);
-    filter_config.acceptance_code &= filter;
-    filters_or |= filter;
-    mask_or |= extd ? 7 : 0x1FFFFF;
-    filter_config.acceptance_mask = (filters_or & (~filter_config.acceptance_code)) | mask_or;
-    ESP_LOGI(tag, "filter: %08" PRIX32 ", mask: %08" PRIX32, filter_config.acceptance_code, filter_config.acceptance_mask);
-    reinstall();
+    filter &= id | (extd ? 0x80000000 : 0);
+    filters_or |= id | (extd ? 0x80000000 : 0);
+    mask = ~(filters_or & ~filter);
+    ESP_LOGI(tag, "filter: %08" PRIX32 ", mask: %08" PRIX32, filter, mask);
 }
 
 void omni_libcan_clear_filter(void) {
-    filter_config.acceptance_code = 0xFFFFFFFF;
+    filter = 0xFFFFFFFF;
     filters_or = 0;
-    mask_or = 0;
-    filter_config.acceptance_mask = 0;
-    reinstall();
+    mask = 0xFFFFFFFF;
 }
