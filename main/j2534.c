@@ -373,17 +373,19 @@ static void start_filter_iso(StartFilterRequest* req, StartFilterResponse* res) 
                         | (req->flow_control->data.data[1] << 16)
                         | (req->flow_control->data.data[2] << 8)
                         | req->flow_control->data.data[3]
-                        | ((req->flow_control->tx_flags & 128) << 23);
+                        | ((req->flow_control->tx_flags & 128) << 23)
+                        | 0x20000000; // enable padding
                     isotp_addr_pairs[i].rxid
                         = (req->pattern->data.data[0] << 24)
                         | (req->pattern->data.data[1] << 16)
                         | (req->pattern->data.data[2] << 8)
                         | req->pattern->data.data[3]
-                        | ((req->pattern->tx_flags & 128) << 23);
+                        | ((req->pattern->tx_flags & 128) << 23)
+                        | 0x20000000; // enable padding
                     isotp_addr_pairs[i].txext = (req->flow_control->tx_flags & 128) ? req->flow_control->data.data[4] : 0;
-                    isotp_addr_pairs[i].txpad = 0xCC;
+                    isotp_addr_pairs[i].txpad = 0;
                     isotp_addr_pairs[i].rxext = (req->pattern->tx_flags & 128) ? req->pattern->data.data[4] : 0;
-                    isotp_addr_pairs[i].rxpad = 0xCC;
+                    isotp_addr_pairs[i].rxpad = 0;
                     res->filter_id = i + 1;
                     omni_libcan_add_filter(isotp_addr_pairs[i].rxid & 0x1FFFFFFF, (isotp_addr_pairs[i].rxid & 0x80000000) != 0);
                     goto out;

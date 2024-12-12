@@ -302,7 +302,7 @@ void isotp_event_loop(isotp_event_cb* get_next_event, isotp_unmatched_frame* unm
             if (!matched && evt.msg.size <= 11) {
                 // allow anyways when it fits in a single frame
                 for (int i = evt.msg.size; i < 11; i++) {
-                    evt.msg.data[i] = 0xCC;
+                    evt.msg.data[i] = 0;
                 }
                 evt.msg.data[3] = evt.msg.size - 4;
                 write_frame(id, 8, evt.msg.data + 3);
