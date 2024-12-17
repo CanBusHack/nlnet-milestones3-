@@ -1,0 +1,4 @@
+BasedOnStyle: webkit
+NamespaceIndentation: None
+FixNamespaceComments: true
+BreakBeforeBraces: Attach
