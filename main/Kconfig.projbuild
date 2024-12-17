@@ -1,0 +1,73 @@
+menu "Omnitrix config"
+
+    config OMNITRIX_FIMRWARE_IDENTITY
+        string "Unique identity name for app"
+        default "BlinkCar Factory App v1.0"
+
+    menuconfig OMNITRIX_ENABLE_BLE
+        depends on BT_NIMBLE_ENABLED
+        bool "Enable BLE component"
+        default y
+
+    config OMNITRIX_BLE_DEVICE_NAME
+        depends on OMNITRIX_ENABLE_BLE
+        string "BLE device name"
+        default "BlinkCar v1.0"
+
+    menuconfig OMNITRIX_ENABLE_OTA
+        bool "Enable OTA component"
+        default y
+
+    config OMNITRIX_OTA_SERVICE_UUID
+        depends on OMNITRIX_ENABLE_BLE && OMNITRIX_ENABLE_OTA
+        string "OTA BLE serivce UUID"
+        default "0ac32576-eeb0-4be5-8cc3-01cfd3a6c233"
+
+    config OMNITRIX_OTA_CHARACTERISTIC_UUID
+        depends on OMNITRIX_ENABLE_BLE && OMNITRIX_ENABLE_OTA
+        string "OTA BLE characteristic UUID"
+        default "324278c9-c3da-4c81-aaa0-b55c1211c4cc"
+
+    menuconfig OMNITRIX_ENABLE_HELLO
+        bool "Enable Hello World component"
+        default y
+
+    menuconfig OMNITRIX_ENABLE_J2534
+        bool "Enable J2534 component"
+        default y
+
+    config OMNITRIX_J2534_SERVICE_UUID
+        depends on OMNITRIX_ENABLE_BLE && OMNITRIX_ENABLE_J2534
+        string "J2534 BLE serivce UUID"
+        default "e511baa5-04e4-4570-9988-df6b28d24e2c"
+
+    config OMNITRIX_J2534_CHARACTERISTIC_UUID
+        depends on OMNITRIX_ENABLE_BLE && OMNITRIX_ENABLE_J2534
+        string "J2534 BLE characteristic UUID"
+        default "fae08ca5-c3f5-4c2c-8484-b817eccb66ff"
+
+        menuconfig OMNITRIX_ENABLE_LED
+            bool "Enable LED component"
+            default y
+            help
+                Enable support for WS2812B RGB LED control.
+    
+        config OMNITRIX_LED_GPIO
+            depends on OMNITRIX_ENABLE_LED
+            int "LED GPIO Number"
+            range 0 48
+            default 23
+            help
+                GPIO number (IOxx) for the WS2812B LED data line.
+    
+        config OMNITRIX_LED_SERVICE_UUID
+            depends on OMNITRIX_ENABLE_BLE && OMNITRIX_ENABLE_LED
+            string "LED BLE service UUID"
+            default "2c77c3ba-f54d-4fd3-9932-a51f2d137236"
+    
+        config OMNITRIX_LED_CHARACTERISTIC_UUID
+            depends on OMNITRIX_ENABLE_BLE && OMNITRIX_ENABLE_LED
+            string "LED BLE characteristic UUID"
+            default "836d5c99-2c4a-4e08-8670-553d2c32db9f"
+
+endmenu
