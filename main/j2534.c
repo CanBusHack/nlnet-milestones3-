@@ -531,6 +531,72 @@ static struct mem process_get_error(uint8_t* inbuf, size_t insz) {
     PACK_AND_RETURN(get_error);
 }
 
+static struct mem process_ioctl_get_config(uint8_t* inbuf, size_t insz) {
+    assert(inbuf);
+    struct IoctlGetConfigRequest* req = ioctl_get_config_request__unpack(NULL, insz, inbuf);
+    assert(req);
+    assert(req->call == CALL__Ioctl);
+    assert(req->ioctl == IOCTL_ID__GetConfig);
+
+    // TODO: get config
+    struct Config** config = malloc(sizeof(struct Config*) * req->n_config);
+    assert(config);
+    for (size_t i = 0; i < req->n_config; i++) {
+        config[i] = malloc(sizeof(struct Config));
+        assert(config[i]);
+        config[i]->parameter = req->config[i]->parameter;
+        config[i]->value = req->config[i]->value;
+    }
+    struct IoctlGetConfigResponse* res = malloc(sizeof(struct IoctlGetConfigResponse));
+    assert(res);
+    ioctl_get_config_response__init(res);
+    res->id = req->id;
+    res->call = CALL__Ioctl;
+    res->code = STATUS_NOERROR;
+    res->ioctl = IOCTL_ID__GetConfig;
+    res->n_config = req->n_config;
+    res->config = config;
+    ioctl_get_config_request__free_unpacked(req, NULL);
+
+    size_t sz = ioctl_get_config_response__get_packed_size(res);
+    struct mem result = { 0 };
+    if (sz <= UINT16_MAX) {
+        result.buf = malloc(sz);
+        assert(result.buf);
+        result.len = sz;
+        ioctl_get_config_response__pack(res, result.buf);
+    }
+    if (res->config) {
+        for (size_t i = 0; i < res->n_config; i++) {
+            if (res->config[i]) {
+                free(res->config[i]);
+            }
+        }
+        free(res->config);
+    }
+    free(res);
+    return result;
+}
+
+static struct mem process_ioctl_set_config(uint8_t* inbuf, size_t insz) {
+    assert(inbuf);
+    struct IoctlSetConfigRequest* req = ioctl_set_config_request__unpack(NULL, insz, inbuf);
+    assert(req);
+    assert(req->call == CALL__Ioctl);
+    assert(req->ioctl == IOCTL_ID__SetConfig);
+
+    // TODO: set config
+    struct IoctlResponse* res = malloc(sizeof(struct IoctlResponse));
+    ioctl_response__init(res);
+    res->id = req->id;
+    res->call = CALL__Ioctl;
+    res->code = STATUS_NOERROR;
+    res->ioctl = IOCTL_ID__SetConfig;
+    ioctl_set_config_request__free_unpacked(req, NULL);
+
+    PACK_AND_RETURN(ioctl);
+}
+
 static struct mem process_ioctl_read_vbatt(uint8_t* inbuf, size_t insz) {
     assert(inbuf);
     struct IoctlRequest* req = ioctl_request__unpack(NULL, insz, inbuf);
@@ -558,6 +624,12 @@ static struct mem process_ioctl(uint8_t* inbuf, size_t insz) {
     IoctlId ioctl = req->ioctl;
 
     switch (ioctl) {
+    case IOCTL_ID__GetConfig:
+        ioctl_request__free_unpacked(req, NULL);
+        return process_ioctl_get_config(inbuf, insz);
+    case IOCTL_ID__SetConfig:
+        ioctl_request__free_unpacked(req, NULL);
+        return process_ioctl_set_config(inbuf, insz);
     case IOCTL_ID__ReadVbatt:
         ioctl_request__free_unpacked(req, NULL);
         return process_ioctl_read_vbatt(inbuf, insz);
