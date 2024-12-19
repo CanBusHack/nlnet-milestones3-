@@ -455,7 +455,7 @@ static struct mem process_stop_filter(uint8_t* inbuf, size_t insz) {
         res->code = ERR_INVALID_CHANNEL_ID;
         break;
     }
-    base_request__free_unpacked(req, NULL);
+    stop_filter_request__free_unpacked(req, NULL);
 
     PACK_AND_RETURN(base);
 }
@@ -471,7 +471,7 @@ static struct mem process_set_voltage(uint8_t* inbuf, size_t insz) {
     res->id = req->id;
     res->call = CALL__SetVoltage;
     res->code = ERR_NOT_SUPPORTED;
-    base_request__free_unpacked(req, NULL);
+    set_voltage_request__free_unpacked(req, NULL);
 
     PACK_AND_RETURN(base);
 }
