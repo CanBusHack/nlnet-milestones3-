@@ -9,6 +9,7 @@
 #include <omnitrix/libcan.h>
 
 struct isotp_msg {
+    uint32_t channel;
     size_t size;
     uint8_t data[256];
 };

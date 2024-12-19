@@ -15,6 +15,7 @@ struct isotp_addr_pairs {
     uint8_t txpad;
     uint8_t rxext;
     uint8_t rxpad;
+    uint32_t channel;
 };
 
 extern struct isotp_addr_pairs isotp_addr_pairs[ISOTP_MAX_PAIRS];
@@ -53,7 +54,7 @@ struct isotp_event {
 typedef void isotp_event_cb(struct isotp_event*);
 typedef void isotp_unmatched_frame(const uint8_t* frame);
 typedef void isotp_write_frame(uint32_t id, uint8_t dlc, const uint8_t* data);
-typedef void isotp_read_message_cb(const uint8_t* data, size_t size);
+typedef void isotp_read_message_cb(const uint8_t* data, size_t size, uint32_t channel);
 
 void isotp_event_loop(isotp_event_cb* get_next_event, isotp_unmatched_frame* unmatched_frame, isotp_write_frame* write_frame, isotp_read_message_cb* read_message_cb);
 

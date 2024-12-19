@@ -27,6 +27,7 @@ enum {
     SCI_A_TRANS = 8,
     SCI_B_ENGINE = 9,
     SCI_B_TRANS = 10,
+    ISO15765_PS = 0x8005,
 };
 
 enum {
@@ -62,6 +63,7 @@ enum {
 enum {
     CH_CAN_1 = 0x314e4143,
     CH_ISO15765_1 = 0x314f5349,
+    CH_ISO15765_2 = 0x324f5349,
 };
 
 static bool channels[2] = { 0 };
@@ -111,6 +113,11 @@ static struct mem process_connect(uint8_t* inbuf, size_t insz) {
         res->channel = CH_ISO15765_1;
         channels[1] = true;
         break;
+    case ISO15765_PS:
+        res->code = STATUS_NOERROR;
+        res->channel = CH_ISO15765_2;
+        channels[1] = true;
+        break;
     default:
         if (req->protocol && req->protocol < 11) {
             res->code = ERR_NOT_SUPPORTED;
@@ -154,6 +161,9 @@ static struct mem process_disconnect(uint8_t* inbuf, size_t insz) {
             res->code = ERR_INVALID_CHANNEL_ID;
         }
         break;
+    case CH_ISO15765_2:
+        res->code = STATUS_NOERROR;
+        break;
     default:
         res->code = ERR_INVALID_CHANNEL_ID;
         break;
@@ -167,9 +177,17 @@ static struct isotp_msg isotp_msg_queue_storage[4];
 static StaticQueue_t isotp_msg_queue_buffer;
 static QueueHandle_t isotp_msg_queue_handle;
 
+static struct isotp_msg isotp_ps_msg_queue_storage[4];
+static StaticQueue_t isotp_ps_msg_queue_buffer;
+static QueueHandle_t isotp_ps_msg_queue_handle;
+
 static void isotp_read_handler(struct isotp_msg* msg) {
     // TODO: remove queues; notify instead
-    xQueueSend(isotp_msg_queue_handle, msg, 0);
+    if (msg->channel == CH_ISO15765_2) {
+        xQueueSend(isotp_ps_msg_queue_handle, msg, 0);
+    } else {
+        xQueueSend(isotp_msg_queue_handle, msg, 0);
+    }
 }
 
 static void read_iso(ReadRequest* req, ReadResponse* res) {
@@ -295,6 +313,7 @@ static struct mem process_write(uint8_t* inbuf, size_t insz) {
         }
         break;
     case CH_ISO15765_1:
+    case CH_ISO15765_2:
         if (channels[1]) {
             write_iso(req, res);
         } else {
@@ -357,7 +376,7 @@ static void start_filter_can(StartFilterRequest* req, StartFilterResponse* res) 
     }
 }
 
-static void start_filter_iso(StartFilterRequest* req, StartFilterResponse* res) {
+static void start_filter_iso(StartFilterRequest* req, StartFilterResponse* res, uint32_t channel) {
     (void)req;
     (void)res;
     if (req->filter_type == 3) {
@@ -386,6 +405,7 @@ static void start_filter_iso(StartFilterRequest* req, StartFilterResponse* res) 
                     isotp_addr_pairs[i].txpad = 0;
                     isotp_addr_pairs[i].rxext = (req->pattern->tx_flags & 128) ? req->pattern->data.data[4] : 0;
                     isotp_addr_pairs[i].rxpad = 0;
+                    isotp_addr_pairs[i].channel = channel;
                     res->filter_id = i + 1;
                     omni_libcan_add_filter(isotp_addr_pairs[i].rxid & 0x1FFFFFFF, (isotp_addr_pairs[i].rxid & 0x80000000) != 0);
                     goto out;
@@ -418,7 +438,8 @@ static struct mem process_start_filter(uint8_t* inbuf, size_t insz) {
         start_filter_can(req, res);
         break;
     case CH_ISO15765_1:
-        start_filter_iso(req, res);
+    case CH_ISO15765_2:
+        start_filter_iso(req, res, req->channel);
         break;
     default:
         res->code = ERR_INVALID_CHANNEL_ID;
@@ -651,6 +672,7 @@ void omni_j2534_main(void) {
     omni_libisotp_main();
     omni_libisotp_add_incoming_handler(isotp_read_handler);
     isotp_msg_queue_handle = xQueueCreateStatic(4, sizeof(struct isotp_msg), (uint8_t*)isotp_msg_queue_storage, &isotp_msg_queue_buffer);
+    isotp_ps_msg_queue_handle = xQueueCreateStatic(4, sizeof(struct isotp_msg), (uint8_t*)isotp_ps_msg_queue_storage, &isotp_ps_msg_queue_buffer);
 }
 
 #endif

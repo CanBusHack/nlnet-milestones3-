@@ -99,11 +99,11 @@ static void debug_msg_log_n(isotp_read_message_cb* read_message_cb, const char* 
 
     for (; size > 251; size -= 251, msg += 251) {
         memcpy(buf + 5, msg, 251);
-        read_message_cb(buf, 256);
+        read_message_cb(buf, 256, 0);
     }
     if (size) {
         memcpy(buf + 5, msg, size);
-        read_message_cb(buf, size + 5);
+        read_message_cb(buf, size + 5, 0);
     }
 }
 
@@ -118,17 +118,17 @@ static void debug_msg(struct isotp_event* evt, isotp_read_message_cb* read_messa
             switch (evt->msg.data[4]) {
             case 0:
                 isotp_addr_pairs_extra.ble_debug = false;
-                read_message_cb(evt->msg.data, 5);
+                read_message_cb(evt->msg.data, 5, 0);
                 return;
             case 1:
                 isotp_addr_pairs_extra.ble_debug = true;
-                read_message_cb(evt->msg.data, 5);
+                read_message_cb(evt->msg.data, 5, 0);
                 return;
             default:
                 break;
             }
             evt->msg.data[4] = 0xFF;
-            read_message_cb(evt->msg.data, 5);
+            read_message_cb(evt->msg.data, 5, 0);
         }
     }
 }
@@ -197,7 +197,7 @@ static void handle_read_can(struct isotp_event* evt, int index, isotp_write_fram
     switch (evt->can.data[pci_byte] >> 4) {
     case 0:
         if (evt->can.data[pci_byte] <= (7 - pci_byte)) {
-            read_message_cb(evt->can.data + pci_byte + 1, evt->can.data[pci_byte]);
+            read_message_cb(evt->can.data + pci_byte + 1, evt->can.data[pci_byte], isotp_addr_pairs[index].channel);
         }
         break;
     case 1:
@@ -226,7 +226,7 @@ static void handle_read_can(struct isotp_event* evt, int index, isotp_write_fram
             isotp_addr_pairs_extra.pairs[index].offset += (max_sz < size) ? max_sz : size;
             rem -= max_sz;
             if (rem <= 0) {
-                read_message_cb(isotp_addr_pairs_extra.pairs[index].buf, size);
+                read_message_cb(isotp_addr_pairs_extra.pairs[index].buf, size, isotp_addr_pairs[index].channel);
             }
         }
         break;

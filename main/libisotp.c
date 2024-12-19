@@ -90,7 +90,7 @@ static void write_frame(uint32_t id, uint8_t dlc, const uint8_t* data) {
     }
 }
 
-static void read_message_cb(const uint8_t* data, size_t size) {
+static void read_message_cb(const uint8_t* data, size_t size, uint32_t channel) {
     assert(data);
     assert(size <= 256);
     struct isotp_msg msg = {
