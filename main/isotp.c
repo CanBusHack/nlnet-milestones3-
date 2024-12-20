@@ -197,7 +197,14 @@ static void handle_read_can(struct isotp_event* evt, int index, isotp_write_fram
     switch (evt->can.data[pci_byte] >> 4) {
     case 0:
         if (evt->can.data[pci_byte] <= (7 - pci_byte)) {
-            read_message_cb(evt->can.data + pci_byte + 1, evt->can.data[pci_byte], isotp_addr_pairs[index].channel);
+            uint8_t buf[11];
+            buf[0] = evt->can.id >> 24;
+            buf[1] = evt->can.id >> 16;
+            buf[2] = evt->can.id >> 8;
+            buf[3] = evt->can.id;
+            buf[4] = evt->can.data[0];
+            memcpy(buf + 4 + pci_byte, evt->can.data + pci_byte + 1, 7 - pci_byte);
+            read_message_cb(buf, evt->can.data[pci_byte] + pci_byte + 4, isotp_addr_pairs[index].channel);
         }
         break;
     case 1:
