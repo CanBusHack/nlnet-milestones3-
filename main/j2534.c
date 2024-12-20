@@ -173,11 +173,11 @@ static struct mem process_disconnect(uint8_t* inbuf, size_t insz) {
     PACK_AND_RETURN(base);
 }
 
-static struct isotp_msg isotp_msg_queue_storage[4];
+static struct isotp_msg isotp_msg_queue_storage[8];
 static StaticQueue_t isotp_msg_queue_buffer;
 static QueueHandle_t isotp_msg_queue_handle;
 
-static struct isotp_msg isotp_ps_msg_queue_storage[4];
+static struct isotp_msg isotp_ps_msg_queue_storage[8];
 static StaticQueue_t isotp_ps_msg_queue_buffer;
 static QueueHandle_t isotp_ps_msg_queue_handle;
 
@@ -200,7 +200,13 @@ static void read_iso(ReadRequest* req, ReadResponse* res) {
     res->code = STATUS_NOERROR;
     for (count = 0; count < req->num; count++) {
         struct isotp_msg msg;
-        if (xQueueReceive(isotp_msg_queue_handle, &msg, pdMS_TO_TICKS(100)) == pdTRUE) {
+        BaseType_t r;
+        if (req->channel == CH_ISO15765_2) {
+            r = xQueueReceive(isotp_ps_msg_queue_handle, &msg, pdMS_TO_TICKS(100));
+        } else {
+            r = xQueueReceive(isotp_msg_queue_handle, &msg, pdMS_TO_TICKS(100));
+        }
+        if (r == pdTRUE) {
             // TODO: use timeouts correctly
             msgs[count] = malloc(sizeof(Message));
             assert(msgs[count]);
@@ -243,6 +249,7 @@ static struct mem process_read(uint8_t* inbuf, size_t insz) {
         }
         break;
     case CH_ISO15765_1:
+    case CH_ISO15765_2:
         if (channels[1]) {
             read_iso(req, res);
         } else {
@@ -743,8 +750,8 @@ void omni_j2534_main(void) {
     omni_libcan_main();
     omni_libisotp_main();
     omni_libisotp_add_incoming_handler(isotp_read_handler);
-    isotp_msg_queue_handle = xQueueCreateStatic(4, sizeof(struct isotp_msg), (uint8_t*)isotp_msg_queue_storage, &isotp_msg_queue_buffer);
-    isotp_ps_msg_queue_handle = xQueueCreateStatic(4, sizeof(struct isotp_msg), (uint8_t*)isotp_ps_msg_queue_storage, &isotp_ps_msg_queue_buffer);
+    isotp_msg_queue_handle = xQueueCreateStatic(8, sizeof(struct isotp_msg), (uint8_t*)isotp_msg_queue_storage, &isotp_msg_queue_buffer);
+    isotp_ps_msg_queue_handle = xQueueCreateStatic(8, sizeof(struct isotp_msg), (uint8_t*)isotp_ps_msg_queue_storage, &isotp_ps_msg_queue_buffer);
 }
 
 #endif
