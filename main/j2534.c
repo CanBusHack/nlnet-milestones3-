@@ -545,15 +545,6 @@ static struct mem process_ioctl_get_config(uint8_t* inbuf, size_t insz) {
     assert(req->call == CALL__Ioctl);
     assert(req->ioctl == IOCTL_ID__GetConfig);
 
-    // TODO: get config
-    struct Config** config = malloc(sizeof(struct Config*) * req->n_config);
-    assert(config);
-    for (size_t i = 0; i < req->n_config; i++) {
-        config[i] = malloc(sizeof(struct Config));
-        assert(config[i]);
-        config[i]->parameter = req->config[i]->parameter;
-        config[i]->value = req->config[i]->value;
-    }
     struct IoctlGetConfigResponse* res = malloc(sizeof(struct IoctlGetConfigResponse));
     assert(res);
     ioctl_get_config_response__init(res);
@@ -562,8 +553,7 @@ static struct mem process_ioctl_get_config(uint8_t* inbuf, size_t insz) {
     res->code = STATUS_NOERROR;
     res->ioctl = IOCTL_ID__GetConfig;
     res->n_config = req->n_config;
-    res->config = config;
-    ioctl_get_config_request__free_unpacked(req, NULL);
+    res->config = req->config;
 
     size_t sz = ioctl_get_config_response__get_packed_size(res);
     struct mem result = { 0 };
@@ -573,14 +563,7 @@ static struct mem process_ioctl_get_config(uint8_t* inbuf, size_t insz) {
         result.len = sz;
         ioctl_get_config_response__pack(res, result.buf);
     }
-    if (res->config) {
-        for (size_t i = 0; i < res->n_config; i++) {
-            if (res->config[i]) {
-                free(res->config[i]);
-            }
-        }
-        free(res->config);
-    }
+    ioctl_get_config_request__free_unpacked(req, NULL);
     free(res);
     return result;
 }
