@@ -5,7 +5,7 @@
 #include <stddef.h>
 #include <stdint.h>
 
-#define ISOTP_MAX_PAIRS 20
+#define ISOTP_MAX_PAIRS 80
 
 struct isotp_addr_pairs {
     bool active;
