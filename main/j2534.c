@@ -472,6 +472,7 @@ static struct mem process_stop_filter(uint8_t* inbuf, size_t insz) {
         res->code = ERR_INVALID_FILTER_ID;
         break;
     case CH_ISO15765_1:
+    case CH_ISO15765_2:
         if (req->filter_id - 1 < ISOTP_MAX_PAIRS && isotp_addr_pairs[req->filter_id - 1].active) {
             isotp_addr_pairs[req->filter_id - 1].active = false;
             res->code = STATUS_NOERROR;
