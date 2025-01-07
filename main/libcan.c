@@ -17,7 +17,7 @@ static StackType_t can_dispatcher_stack[4096];
 static StaticTask_t can_dispatcher_buffer;
 static TaskHandle_t can_dispatcher_handle;
 
-static uint8_t can_msg_queue_storage[sizeof(struct twai_message_timestamp) * 16];
+static struct twai_message_timestamp can_msg_queue_storage[256];
 static StaticQueue_t can_msg_queue_buffer;
 static QueueHandle_t can_msg_queue_handle;
 
@@ -124,6 +124,8 @@ static void reinstall(void) {
 
 void omni_libcan_main(void) {
     if (!initialized) {
+        general_config.tx_queue_len = 256;
+        general_config.rx_queue_len = 256;
         if (twai_driver_install(&general_config, &timing_config, &filter_config) == ESP_OK) {
             ESP_LOGI(tag, "driver installed");
         } else {
@@ -135,9 +137,9 @@ void omni_libcan_main(void) {
             ESP_LOGE(tag, "driver start failed");
         }
         can_msg_queue_handle = xQueueCreateStatic(
-            16,
-            sizeof(struct twai_message_timestamp),
-            can_msg_queue_storage,
+            sizeof(can_msg_queue_storage) / sizeof(can_msg_queue_storage[0]),
+            sizeof(can_msg_queue_storage[0]),
+            (uint8_t*)can_msg_queue_storage,
             &can_msg_queue_buffer);
         can_reader_handle = xTaskCreateStatic(
             can_reader,
