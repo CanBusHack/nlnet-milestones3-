@@ -50,7 +50,7 @@ static void can_dispatcher(void* ptr) {
 #define CAN_LOGI(...)
 #define CAN_LOGE(...)
 
-__attribute__((optimize("Ofast"))) static void can_reader(void* ptr) {
+static void can_reader(void* ptr) {
     (void)ptr;
     for (;;) {
         struct twai_message_timestamp msg;

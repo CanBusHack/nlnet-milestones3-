@@ -51,6 +51,12 @@ static void unmatched_frame(const uint8_t* frame) {
     xQueueSend(isotp_unmatched_frame_queue_handle, frame, 0);
 }
 
+// for extreme debugging only, potentially a major performance hit
+//#define CAN_LOGI(...) ESP_LOGI(__VA_ARGS__)
+//#define CAN_LOGE(...) ESP_LOGE(__VA_ARGS__)
+#define CAN_LOGI(...)
+#define CAN_LOGE(...)
+
 static void write_frame(uint32_t id, uint8_t dlc, const uint8_t* data) {
     assert(data);
     twai_message_t msg = {
@@ -60,32 +66,32 @@ static void write_frame(uint32_t id, uint8_t dlc, const uint8_t* data) {
     };
     memcpy(msg.data, data, (dlc > 8) ? 8 : dlc);
     if (msg.extd) {
-        ESP_LOGI(tag, "about to write frame: ID=%08" PRIX32 ", DLC=%X, DATA=%02X%02X%02X%02X%02X%02X%02X%02X, EXTD=T", msg.identifier, msg.data_length_code, msg.data[0], msg.data[1], msg.data[2], msg.data[3], msg.data[4], msg.data[5], msg.data[6], msg.data[7]);
+        CAN_LOGI(tag, "about to write frame: ID=%08" PRIX32 ", DLC=%X, DATA=%02X%02X%02X%02X%02X%02X%02X%02X, EXTD=T", msg.identifier, msg.data_length_code, msg.data[0], msg.data[1], msg.data[2], msg.data[3], msg.data[4], msg.data[5], msg.data[6], msg.data[7]);
     } else {
-        ESP_LOGI(tag, "about to write frame: ID=%03" PRIX32 ", DLC=%X, DATA=%02X%02X%02X%02X%02X%02X%02X%02X, EXTD=F", msg.identifier, msg.data_length_code, msg.data[0], msg.data[1], msg.data[2], msg.data[3], msg.data[4], msg.data[5], msg.data[6], msg.data[7]);
+        CAN_LOGI(tag, "about to write frame: ID=%03" PRIX32 ", DLC=%X, DATA=%02X%02X%02X%02X%02X%02X%02X%02X, EXTD=F", msg.identifier, msg.data_length_code, msg.data[0], msg.data[1], msg.data[2], msg.data[3], msg.data[4], msg.data[5], msg.data[6], msg.data[7]);
     }
     esp_err_t result = twai_transmit(&msg, 0);
     switch (result) {
     case ESP_OK:
-        ESP_LOGI(tag, "frame write successful");
+        CAN_LOGI(tag, "frame write successful");
         break;
     case ESP_ERR_INVALID_ARG:
-        ESP_LOGE(tag, "frame write failed: invalid argument");
+        CAN_LOGE(tag, "frame write failed: invalid argument");
         break;
     case ESP_ERR_TIMEOUT:
-        ESP_LOGE(tag, "frame write failed: timeout");
+        CAN_LOGE(tag, "frame write failed: timeout");
         break;
     case ESP_FAIL:
-        ESP_LOGE(tag, "frame write failed: TX queue disabled and another message is currently transmitting");
+        CAN_LOGE(tag, "frame write failed: TX queue disabled and another message is currently transmitting");
         break;
     case ESP_ERR_INVALID_STATE:
-        ESP_LOGE(tag, "frame write failed: driver is not running or installed");
+        CAN_LOGE(tag, "frame write failed: driver is not running or installed");
         break;
     case ESP_ERR_NOT_SUPPORTED:
-        ESP_LOGE(tag, "frame write failed: listen only mode does not support transmissions");
+        CAN_LOGE(tag, "frame write failed: listen only mode does not support transmissions");
         break;
     default:
-        ESP_LOGE(tag, "frame write failed: unknown error");
+        CAN_LOGE(tag, "frame write failed: unknown error");
         break;
     }
 }
