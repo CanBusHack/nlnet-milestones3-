@@ -539,6 +539,13 @@ static struct mem process_get_error(uint8_t* inbuf, size_t insz) {
     PACK_AND_RETURN(get_error);
 }
 
+// TODO: proper config handling
+struct {
+    bool active;
+    uint32_t parameter;
+    uint32_t value;
+} config[10] = { 0 };
+
 static struct mem process_ioctl_get_config(uint8_t* inbuf, size_t insz) {
     assert(inbuf);
     struct IoctlGetConfigRequest* req = ioctl_get_config_request__unpack(NULL, insz, inbuf);
@@ -555,6 +562,16 @@ static struct mem process_ioctl_get_config(uint8_t* inbuf, size_t insz) {
     res->ioctl = IOCTL_ID__GetConfig;
     res->n_config = req->n_config;
     res->config = req->config;
+
+    for (size_t i = 0; i < res->n_config; i++) {
+        res->config[i]->value = 0;
+        for (int j = 0; j < sizeof(config) / sizeof(config[0]); j++) {
+            if (config[j].active && res->config[i]->parameter == config[j].parameter) {
+                res->config[i]->value = config[j].value;
+                break;
+            }
+        }
+    }
 
     size_t sz = ioctl_get_config_response__get_packed_size(res);
     struct mem result = { 0 };
@@ -576,7 +593,16 @@ static struct mem process_ioctl_set_config(uint8_t* inbuf, size_t insz) {
     assert(req->call == CALL__Ioctl);
     assert(req->ioctl == IOCTL_ID__SetConfig);
 
-    // TODO: set config
+    for (size_t i = 0; i < req->n_config; i++) {
+        for (int j = 0; j < sizeof(config) / sizeof(config[0]); j++) {
+            if (!config[j].active || req->config[i]->parameter == config[j].parameter) {
+                config[j].active = true;
+                config[j].value = req->config[i]->value;
+                break;
+            }
+        }
+    }
+
     struct IoctlResponse* res = malloc(sizeof(struct IoctlResponse));
     ioctl_response__init(res);
     res->id = req->id;
@@ -716,7 +742,7 @@ const struct ble_gatt_svc_def omni_j2534_gatt_svr_svcs[] = {
             {
                 .uuid = &gatt_svr_chr_uuid.u,
                 .access_cb = gatt_svr_chr_access_cb,
-                .flags = BLE_GATT_CHR_F_WRITE | BLE_GATT_CHR_F_NOTIFY,
+                .flags = BLE_GATT_CHR_F_WRITE | BLE_GATT_CHR_F_WRITE_NO_RSP | BLE_GATT_CHR_F_NOTIFY,
                 .val_handle = &gatt_svr_chr_val_handle,
             },
             {
