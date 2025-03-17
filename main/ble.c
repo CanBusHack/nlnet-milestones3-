@@ -32,6 +32,7 @@
 #include <esp_check.h>
 #include <esp_err.h>
 #include <esp_log.h>
+#include <stdbool.h>
 #include <stdint.h>
 #include <string.h>
 
@@ -46,7 +47,6 @@
 #include <nimble/ble.h>
 #include <nimble/nimble_port.h>
 #include <nimble/nimble_port_freertos.h>
-#include <services/ans/ble_svc_ans.h>
 #include <services/gap/ble_svc_gap.h>
 #include <services/gatt/ble_svc_gatt.h>
 
@@ -65,18 +65,17 @@ static int omni_ble_gap_event_cb(struct ble_gap_event* event, void* arg);
 /** Start advertising */
 static void omni_ble_advertise(void) {
     const char* name = ble_svc_gap_device_name();
+    static bool omit = false;
+    omit = !omit;
     struct ble_hs_adv_fields fields = {
         .flags = BLE_HS_ADV_F_DISC_GEN | BLE_HS_ADV_F_BREDR_UNSUP,
         .tx_pwr_lvl_is_present = 1,
         .tx_pwr_lvl = BLE_HS_ADV_TX_PWR_LVL_AUTO,
-        .name = (const uint8_t*)name,
-        .name_len = strlen(name),
-        .name_is_complete = 1,
-        .uuids16 = (ble_uuid16_t[]) {
-            BLE_UUID16_INIT(BLE_SVC_ANS_UUID16),
-        },
-        .num_uuids16 = 1,
-        .uuids16_is_complete = 1,
+        .name = omit ? (const uint8_t*)name : NULL,
+        .name_len = omit ? strlen(name) : 0,
+        .name_is_complete = omit,
+        .mfg_data = omit ? NULL : (const uint8_t*)"\xff\xff\x06\xcav\x1a\x90.?\xa2\x8fp\x02\xf4",  // 1CANBUSHACKISC00L
+        .mfg_data_len = omit ? 0 : 14,
     };
 
     int rc = ble_gap_adv_set_fields(&fields);
@@ -90,7 +89,7 @@ static void omni_ble_advertise(void) {
         .disc_mode = BLE_GAP_DISC_MODE_GEN,
     };
 
-    rc = ble_gap_adv_start(own_addr_type, NULL, BLE_HS_FOREVER, &adv_params, omni_ble_gap_event_cb, NULL);
+    rc = ble_gap_adv_start(own_addr_type, NULL, 10000, &adv_params, omni_ble_gap_event_cb, NULL);
     if (rc != 0) {
         ESP_LOGE(tag, "error enabling advertisement: %d", rc);
     }
@@ -246,8 +245,6 @@ void omni_ble_main(const struct ble_gatt_svc_def* const* args) {
             return;
         }
     }
-
-    ble_svc_ans_init();
 
     int rc = ble_svc_gap_device_name_set(CONFIG_OMNITRIX_BLE_DEVICE_NAME);
     assert(rc == 0);
