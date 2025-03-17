@@ -14,7 +14,7 @@ idf_component_register(
   "${CMAKE_CURRENT_BINARY_DIR}/omnitrix/uuid.gen.h"
   PRIV_INCLUDE_DIRS
   "include"
-  "j2534"
+  "j2534/include"
   "${CMAKE_CURRENT_BINARY_DIR}"
   PRIV_REQUIRES
   app_update

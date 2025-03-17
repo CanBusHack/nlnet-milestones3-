@@ -7,6 +7,8 @@
 #include <stdlib.h>
 #include <string.h>
 
+#include <j2534/error_codes.h>
+#include <j2534/protocols.h>
 #include <omnitrix/ble.h>
 #include <omnitrix/j2534.h>
 #include <omnitrix/libcan.h>
@@ -16,11 +18,10 @@
 #include "isotp.h"
 #include "j2534.pb-c.h"
 
-#include "j2534/src/error_codes.h"
-#include "j2534/src/protocols.h"
-
 #define J2534CALL __attribute__((always_inline, nonnull(1))) static inline
+#define assert_nonnull(x)
 #include "j2534/src/j2534.c"
+#undef assert_nonnull
 #undef J2534CALL
 
 enum {
@@ -55,8 +56,6 @@ static struct j2534_state state = {
     .device_open = true,
 };
 
-static bool channels[2] = { 0 };
-
 struct mem {
     void* buf;
     uint16_t len;
@@ -86,35 +85,14 @@ static struct mem process_connect(uint8_t* inbuf, size_t insz) {
     connect_response__init(res);
     res->id = req->id;
     res->call = CALL__Connect;
-    switch (req->protocol) {
-    case CAN:
-        res->code = STATUS_NOERROR;
-        res->channel = CH_CAN_1;
-        channels[0] = true;
-        break;
-    case ISO15765:
-        if (channels[1]) {
-            for (int i = 0; i < ISOTP_MAX_PAIRS; i++) {
-                isotp_addr_pairs[i].active = false;
-            }
+    for (struct j2534_channel_state* channel = state.channels; channel->protocol; channel++) {
+        if (channel->protocol == req->protocol && channel->channel_open) {
+            j2534_disconnect(&state, channel->channel_handle);
         }
-        res->code = STATUS_NOERROR;
-        res->channel = CH_ISO15765_1;
-        channels[1] = true;
-        break;
-    case ISO15765_PS:
-        res->code = STATUS_NOERROR;
-        res->channel = CH_ISO15765_2;
-        channels[1] = true;
-        break;
-    default:
-        if (req->protocol && req->protocol < 11) {
-            res->code = ERR_NOT_SUPPORTED;
-        } else {
-            res->code = ERR_INVALID_PROTOCOL_ID;
-        }
-        break;
     }
+    struct j2534_result result = j2534_connect(&state, state.device_handle, req->protocol, req->flags, req->baud);
+    res->code = result.error;
+    res->channel = result.value;
     connect_request__free_unpacked(req, NULL);
 
     PACK_AND_RETURN(connect);
@@ -130,33 +108,7 @@ static struct mem process_disconnect(uint8_t* inbuf, size_t insz) {
     base_response__init(res);
     res->id = req->id;
     res->call = CALL__Disconnect;
-    switch (req->channel) {
-    case CH_CAN_1:
-        if (channels[0]) {
-            res->code = STATUS_NOERROR;
-            channels[0] = false;
-        } else {
-            res->code = ERR_INVALID_CHANNEL_ID;
-        }
-        break;
-    case CH_ISO15765_1:
-        if (channels[1]) {
-            for (int i = 0; i < ISOTP_MAX_PAIRS; i++) {
-                isotp_addr_pairs[i].active = false;
-            }
-            res->code = STATUS_NOERROR;
-            channels[1] = false;
-        } else {
-            res->code = ERR_INVALID_CHANNEL_ID;
-        }
-        break;
-    case CH_ISO15765_2:
-        res->code = STATUS_NOERROR;
-        break;
-    default:
-        res->code = ERR_INVALID_CHANNEL_ID;
-        break;
-    }
+    res->code = j2534_disconnect(&state, req->channel);
     disconnect_request__free_unpacked(req, NULL);
 
     PACK_AND_RETURN(base);
@@ -231,7 +183,7 @@ static struct mem process_read(uint8_t* inbuf, size_t insz) {
     res->call = CALL__Read;
     switch (req->channel) {
     case CH_CAN_1:
-        if (channels[0]) {
+        if (state.channels[0].channel_open) {
             res->code = ERR_NOT_SUPPORTED;
         } else {
             res->code = ERR_INVALID_CHANNEL_ID;
@@ -239,7 +191,7 @@ static struct mem process_read(uint8_t* inbuf, size_t insz) {
         break;
     case CH_ISO15765_1:
     case CH_ISO15765_2:
-        if (channels[1]) {
+        if (state.channels[1].channel_open) {
             read_iso(req, res);
         } else {
             res->code = ERR_INVALID_CHANNEL_ID;
@@ -302,7 +254,7 @@ static struct mem process_write(uint8_t* inbuf, size_t insz) {
     res->call = CALL__Write;
     switch (req->channel) {
     case CH_CAN_1:
-        if (channels[0]) {
+        if (state.channels[0].channel_open) {
             res->code = ERR_NOT_SUPPORTED;
         } else {
             res->code = ERR_INVALID_CHANNEL_ID;
@@ -310,7 +262,7 @@ static struct mem process_write(uint8_t* inbuf, size_t insz) {
         break;
     case CH_ISO15765_1:
     case CH_ISO15765_2:
-        if (channels[1]) {
+        if (state.channels[1].channel_open) {
             write_iso(req, res);
         } else {
             res->code = ERR_INVALID_CHANNEL_ID;
@@ -343,7 +295,7 @@ static struct mem process_start_periodic(uint8_t* inbuf, size_t insz) {
 
 static struct mem process_stop_periodic(uint8_t* inbuf, size_t insz) {
     assert(inbuf);
-    struct BaseRequest* req = base_request__unpack(NULL, insz, inbuf);
+    struct StopPeriodicRequest* req = stop_periodic_request__unpack(NULL, insz, inbuf);
     assert(req);
     assert(req->call == CALL__StopPeriodic);
 
@@ -351,8 +303,8 @@ static struct mem process_stop_periodic(uint8_t* inbuf, size_t insz) {
     base_response__init(res);
     res->id = req->id;
     res->call = CALL__StopPeriodic;
-    res->code = ERR_NOT_SUPPORTED;
-    base_request__free_unpacked(req, NULL);
+    res->code = j2534_stop_periodic(&state, req->channel, req->message_id);
+    stop_periodic_request__free_unpacked(req, NULL);
 
     PACK_AND_RETURN(base);
 }
@@ -429,18 +381,9 @@ static struct mem process_start_filter(uint8_t* inbuf, size_t insz) {
     start_filter_response__init(res);
     res->id = req->id;
     res->call = CALL__StartFilter;
-    switch (req->channel) {
-    case CH_CAN_1:
-        start_filter_can(req, res);
-        break;
-    case CH_ISO15765_1:
-    case CH_ISO15765_2:
-        start_filter_iso(req, res, req->channel);
-        break;
-    default:
-        res->code = ERR_INVALID_CHANNEL_ID;
-        break;
-    }
+    struct j2534_result result = j2534_start_filter(&state, req->channel, req->filter_type);
+    res->code = result.error;
+    res->filter_id = result.value;
     start_filter_request__free_unpacked(req, NULL);
 
     PACK_AND_RETURN(start_filter);
@@ -456,23 +399,7 @@ static struct mem process_stop_filter(uint8_t* inbuf, size_t insz) {
     base_response__init(res);
     res->id = req->id;
     res->call = CALL__StopFilter;
-    switch (req->channel) {
-    case CH_CAN_1:
-        res->code = ERR_INVALID_FILTER_ID;
-        break;
-    case CH_ISO15765_1:
-    case CH_ISO15765_2:
-        if (req->filter_id - 1 < ISOTP_MAX_PAIRS && isotp_addr_pairs[req->filter_id - 1].active) {
-            isotp_addr_pairs[req->filter_id - 1].active = false;
-            res->code = STATUS_NOERROR;
-        } else {
-            res->code = ERR_INVALID_FILTER_ID;
-        }
-        break;
-    default:
-        res->code = ERR_INVALID_CHANNEL_ID;
-        break;
-    }
+    res->code = j2534_stop_filter(&state, req->channel, req->filter_id);
     stop_filter_request__free_unpacked(req, NULL);
 
     PACK_AND_RETURN(base);
@@ -488,7 +415,7 @@ static struct mem process_set_voltage(uint8_t* inbuf, size_t insz) {
     base_response__init(res);
     res->id = req->id;
     res->call = CALL__SetVoltage;
-    res->code = ERR_NOT_SUPPORTED;
+    res->code = j2534_set_voltage(&state, state.device_handle, req->pin, req->voltage);
     set_voltage_request__free_unpacked(req, NULL);
 
     PACK_AND_RETURN(base);
@@ -505,7 +432,7 @@ static struct mem process_read_version(uint8_t* inbuf, size_t insz) {
     res->id = req->id;
     res->call = CALL__ReadVersion;
     res->code = STATUS_NOERROR;
-    res->version = "00.01";
+    res->version = (char*)j2534_read_version(&state, state.device_handle).firmware;
     base_request__free_unpacked(req, NULL);
 
     PACK_AND_RETURN(read_version);
@@ -522,7 +449,7 @@ static struct mem process_get_error(uint8_t* inbuf, size_t insz) {
     res->id = req->id;
     res->call = CALL__GetError;
     res->code = STATUS_NOERROR;
-    res->error = "PassThruGetLastError is not set supported!";
+    res->error = (char*)j2534_get_last_error(&state);
     base_request__free_unpacked(req, NULL);
 
     PACK_AND_RETURN(get_error);
