@@ -14,6 +14,7 @@ idf_component_register(
   "debug.c"
   "led.c"
   "led_ble.c"
+  "heartbeat.c"
   "${CMAKE_CURRENT_BINARY_DIR}/omnitrix/uuid.gen.h"
   PRIV_INCLUDE_DIRS
   "include"

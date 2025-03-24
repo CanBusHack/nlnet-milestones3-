@@ -178,6 +178,27 @@ static void run_powerup_sequence(void) {
     vTaskDelay(pdMS_TO_TICKS(500));
 }
 
+// static void run_powerup_sequence(void) {
+//     // Step 1: Pulsing Effect (Startup Indication)
+//     for (int cycle = 0; cycle < 3; cycle++) { // Repeat pulse 3 times
+//         // Brighten
+//         for (int brightness = 0; brightness <= 255; brightness += 5) {
+//             set_led_raw(0, brightness, 0); // Increase green brightness
+//             vTaskDelay(pdMS_TO_TICKS(10));
+//         }
+//         // Dim
+//         for (int brightness = 255; brightness >= 0; brightness -= 5) {
+//             set_led_raw(0, brightness, 0); // Decrease green brightness
+//             vTaskDelay(pdMS_TO_TICKS(10));
+//         }
+//     }
+
+//     // Step 2: Solid Green (Ready State)
+//     set_led_raw(0, 255, 0); // Full green brightness
+// }
+
+
+
 
 static void error_timer_callback(TimerHandle_t xTimer) {
     static bool state = false;
