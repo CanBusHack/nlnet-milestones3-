@@ -12,7 +12,7 @@ menu "Omnitrix config"
     config OMNITRIX_BLE_DEVICE_NAME
         depends on OMNITRIX_ENABLE_BLE
         string "BLE device name"
-        default "BlinkCar"
+        default "BlinkCar v1.0"
 
     menuconfig OMNITRIX_ENABLE_OTA
         bool "Enable OTA component"
