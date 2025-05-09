@@ -52,6 +52,9 @@
 
 #include <omnitrix/ble.h>
 #include <omnitrix/libnvs.h>
+#include <omnitrix/led.h>
+#include <omnitrix/debug.h>
+#include <omnitrix/heartbeat.h>
 
 /** Logging tag (omni_ble) */
 static const char tag[] = "omni_ble";
@@ -96,42 +99,161 @@ static void omni_ble_advertise(void) {
 }
 
 /** BLE GAP event callback */
+// static int omni_ble_gap_event_cb(struct ble_gap_event* event, void* arg) {
+//     assert(event);
+//     switch (event->type) {
+//     case BLE_GAP_EVENT_CONNECT:
+//         ESP_LOGI(tag, "connection %s: %d", event->connect.status == 0 ? "established" : "failed", event->connect.status);
+//         // Update heartbeat service with connection status
+//         omni_heartbeat_connection_update(event->connect.conn_handle, 
+//                                        event->connect.status == 0);
+//         if (event->connect.status == 0) {
+//             omni_led_set_state(LED_STATE_BLE_CONN);
+//             struct ble_gap_conn_desc desc;
+//             int rc = ble_gap_conn_find(event->connect.conn_handle, &desc);
+//             assert(rc == 0);
+//             ESP_LOGI(tag, "connection: %p", (void*)&desc); // TODO: print struct fields
+//         } else {
+//             omni_ble_advertise();
+//             omni_led_set_state(LED_STATE_BLE_ADV);
+//         }
+//         return 0;
+
+//     case BLE_GAP_EVENT_DISCONNECT:
+//         ESP_LOGI(tag, "disconnect: %d", event->disconnect.reason);
+//         // Update heartbeat service on disconnection
+//         omni_heartbeat_connection_update(BLE_HS_CONN_HANDLE_NONE, false);
+//         omni_ble_advertise();
+//         omni_led_handle_ble_state(false);
+        
+        
+//         return 0;
+
+//     case BLE_GAP_EVENT_ADV_COMPLETE:
+//         ESP_LOGI(tag, "advertise complete: %d", event->adv_complete.reason);
+//         omni_ble_advertise();
+//         omni_led_set_state(LED_STATE_BLE_ADV);
+//         return 0;
+
+//     case BLE_GAP_EVENT_REPEAT_PAIRING: {
+//         struct ble_gap_conn_desc desc;
+//         int rc = ble_gap_conn_find(event->repeat_pairing.conn_handle, &desc);
+//         if (rc == 0) {
+//             ble_store_util_delete_peer(&desc.peer_id_addr);
+//         }
+//         return BLE_GAP_REPEAT_PAIRING_RETRY;
+//     }
+
+//     default:
+//         ESP_LOGI(tag, "unknown event type: %d", event->type);
+//         return 0;
+//     }
+// }
 static int omni_ble_gap_event_cb(struct ble_gap_event* event, void* arg) {
     assert(event);
     switch (event->type) {
     case BLE_GAP_EVENT_CONNECT:
-        ESP_LOGI(tag, "connection %s: %d", event->connect.status == 0 ? "established" : "failed", event->connect.status);
+        ESP_LOGI(tag, "connection %s: %d", 
+            event->connect.status == 0 ? "established" : "failed", 
+            event->connect.status);
+            
+        omni_heartbeat_connection_update(event->connect.conn_handle, 
+                                       event->connect.status == 0);
+            
         if (event->connect.status == 0) {
+            omni_led_set_state(LED_STATE_BLE_CONN);
             struct ble_gap_conn_desc desc;
             int rc = ble_gap_conn_find(event->connect.conn_handle, &desc);
             assert(rc == 0);
-            ESP_LOGI(tag, "connection: %p", (void*)&desc); // TODO: print struct fields
+            ESP_LOGI(tag, "connection parameters: "
+                         "handle=%d our_ota_addr_type=%d our_ota_addr=%02x:%02x:%02x:%02x:%02x:%02x",
+                    desc.conn_handle, desc.our_ota_addr.type,
+                    desc.our_ota_addr.val[5], desc.our_ota_addr.val[4],
+                    desc.our_ota_addr.val[3], desc.our_ota_addr.val[2],
+                    desc.our_ota_addr.val[1], desc.our_ota_addr.val[0]);
         } else {
             omni_ble_advertise();
+            omni_led_set_state(LED_STATE_BLE_ADV);
         }
         return 0;
 
     case BLE_GAP_EVENT_DISCONNECT:
-        ESP_LOGI(tag, "disconnect: %d", event->disconnect.reason);
+        ESP_LOGI(tag, "disconnect; reason=%d", event->disconnect.reason);
+        omni_heartbeat_connection_update(BLE_HS_CONN_HANDLE_NONE, false);
         omni_ble_advertise();
+        omni_led_handle_ble_state(false);
         return 0;
 
     case BLE_GAP_EVENT_ADV_COMPLETE:
-        ESP_LOGI(tag, "advertise complete: %d", event->adv_complete.reason);
+        ESP_LOGI(tag, "advertise complete; reason=%d",
+                 event->adv_complete.reason);
         omni_ble_advertise();
+        omni_led_set_state(LED_STATE_BLE_ADV);
         return 0;
 
-    case BLE_GAP_EVENT_REPEAT_PAIRING: {
+    case BLE_GAP_EVENT_SUBSCRIBE:
+        ESP_LOGI(tag, "subscribe event; conn_handle=%d attr_handle=%d "
+                     "reason=%d prevn=%d curn=%d previ=%d curi=%d",
+                 event->subscribe.conn_handle,
+                 event->subscribe.attr_handle,
+                 event->subscribe.reason,
+                 event->subscribe.prev_notify,
+                 event->subscribe.cur_notify,
+                 event->subscribe.prev_indicate,
+                 event->subscribe.cur_indicate);
+        return 0;
+
+    case BLE_GAP_EVENT_MTU:
+        ESP_LOGI(tag, "mtu update event; conn_handle=%d mtu=%d",
+                 event->mtu.conn_handle,
+                 event->mtu.value);
+        return 0;
+
+    case BLE_GAP_EVENT_REPEAT_PAIRING:
+        ESP_LOGI(tag, "repeat pairing event; conn_handle=%d",
+                 event->repeat_pairing.conn_handle);
+        /* Delete the stored LTK before allowing the peer to pair again */
         struct ble_gap_conn_desc desc;
         int rc = ble_gap_conn_find(event->repeat_pairing.conn_handle, &desc);
         if (rc == 0) {
             ble_store_util_delete_peer(&desc.peer_id_addr);
         }
         return BLE_GAP_REPEAT_PAIRING_RETRY;
-    }
+
+    case BLE_GAP_EVENT_NOTIFY_TX:
+        ESP_LOGI(tag, "notify tx event; conn_handle=%d status=%d",
+                 event->notify_tx.conn_handle,
+                 event->notify_tx.status);
+        return 0;
+
+    case BLE_GAP_EVENT_NOTIFY_RX:
+        ESP_LOGI(tag, "notify rx event; conn_handle=%d indication=%d "
+                     "attr_handle=%d attr_len=%d",
+                 event->notify_rx.conn_handle,
+                 event->notify_rx.indication,
+                 event->notify_rx.attr_handle,
+                 event->notify_rx.om->om_len);
+        return 0;
+
+    case BLE_GAP_EVENT_CONN_UPDATE:
+        ESP_LOGI(tag, "connection update event; status=%d ",
+                 event->conn_update.status);
+        return 0;
+
+    case BLE_GAP_EVENT_CONN_UPDATE_REQ:
+        ESP_LOGI(tag, "connection update request event");
+        return 0;
+
+    case BLE_GAP_EVENT_L2CAP_UPDATE_REQ:
+        ESP_LOGI(tag, "L2CAP update request event");
+        return 0;
+
+    case BLE_GAP_EVENT_TERM_FAILURE:
+        ESP_LOGI(tag, "termination failure event");
+        return 0;
 
     default:
-        ESP_LOGI(tag, "unknown event type: %d", event->type);
+        ESP_LOGI(tag, "unhandled event type: %d", event->type);
         return 0;
     }
 }
@@ -190,6 +312,7 @@ void omni_ble_gatts_register_cb(struct ble_gatt_register_ctxt* ctxt, void* arg) 
         break;
     }
 }
+
 
 /** BLE host task */
 static void omni_ble_host_task(void* param) {

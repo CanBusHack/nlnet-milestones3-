@@ -11,6 +11,10 @@ idf_component_register(
   "libnvs.c"
   "libvin.c"
   "ota.c"
+  "debug.c"
+  "led.c"
+  "led_ble.c"
+  "heartbeat.c"
   "${CMAKE_CURRENT_BINARY_DIR}/omnitrix/uuid.gen.h"
   PRIV_INCLUDE_DIRS
   "include"
@@ -25,6 +29,7 @@ idf_component_register(
   nvs_flash
   protocomm
   protobuf-c
+  esp_common
 )
 
 target_compile_options(${COMPONENT_LIB} PRIVATE -Wall -Wextra -Wpedantic -Wshadow -fsanitize=undefined -fanalyzer)

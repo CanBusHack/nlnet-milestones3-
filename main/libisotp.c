@@ -6,6 +6,8 @@
 
 #include <omnitrix/libcan.h>
 #include <omnitrix/libisotp.h>
+#include <omnitrix/debug.h>
+#include <omnitrix/led.h>
 
 #include "isotp.h"
 
@@ -59,6 +61,8 @@ static void unmatched_frame(const uint8_t* frame) {
 
 static void write_frame(uint32_t id, uint8_t dlc, const uint8_t* data) {
     assert(data);
+    omni_debug_log("ISOTP", "Writing frame - ID: 0x%lx, DLC: %d", (unsigned long)id, dlc);
+    omni_led_data_transfer_start();  // Start LED indication
     twai_message_t msg = {
         .extd = (id & 0x80000000) != 0,
         .identifier = id & 0x1FFFFFFF,
@@ -94,6 +98,7 @@ static void write_frame(uint32_t id, uint8_t dlc, const uint8_t* data) {
         CAN_LOGE(tag, "frame write failed: unknown error");
         break;
     }
+    omni_led_data_transfer_stop();  // Stop LED indication
 }
 
 static void read_message_cb(const uint8_t* data, size_t size, uint32_t channel) {
@@ -135,12 +140,15 @@ static void isotp_dispatch(void* ptr) {
     for (;;) {
         struct isotp_msg msg;
         if (xQueueReceive(isotp_msg_queue_handle, &msg, portMAX_DELAY) == pdTRUE) {
+            omni_led_data_transfer_start();  // Start LED indication
             if (handlers[0]) {
                 handlers[0](&msg);
             }
             if (handlers[1]) {
                 handlers[1](&msg);
             }
+            omni_led_data_transfer_stop();  // Stop LED indication
+        
         }
     }
     vTaskDelete(NULL);
@@ -151,12 +159,14 @@ static void isotp_dispatch_u(void* ptr) {
     for (;;) {
         struct twai_message_timestamp msg;
         if (xQueueReceive(isotp_unmatched_frame_queue_handle, &msg, portMAX_DELAY) == pdTRUE) {
+            omni_led_data_transfer_start();  // Start LED indication
             if (u_handlers[0]) {
                 u_handlers[0](&msg);
             }
             if (u_handlers[1]) {
                 u_handlers[1](&msg);
             }
+            omni_led_data_transfer_start();  // Start LED indication
         }
     }
     vTaskDelete(NULL);

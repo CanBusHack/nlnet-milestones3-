@@ -46,4 +46,53 @@ menu "Omnitrix config"
         string "J2534 BLE characteristic UUID"
         default "fae08ca5-c3f5-4c2c-8484-b817eccb66ff"
 
+    menuconfig OMNITRIX_ENABLE_LED
+        bool "Enable LED component"
+        default y
+        help
+            Enable support for WS2812B RGB LED control.
+
+    config OMNITRIX_LED_GPIO
+        depends on OMNITRIX_ENABLE_LED
+        int "LED GPIO Number"
+        range 0 48
+        default 23
+        help
+            GPIO number (IOxx) for the WS2812B LED data line.
+
+    config OMNITRIX_LED_SERVICE_UUID
+        depends on OMNITRIX_ENABLE_BLE && OMNITRIX_ENABLE_LED
+        string "LED BLE service UUID"
+        default "2c77c3ba-f54d-4fd3-9932-a51f2d137236"
+
+    config OMNITRIX_LED_CHARACTERISTIC_UUID
+        depends on OMNITRIX_ENABLE_BLE && OMNITRIX_ENABLE_LED
+        string "LED BLE characteristic UUID"
+        default "836d5c99-2c4a-4e08-8670-553d2c32db9f"
+
+    menuconfig OMNITRIX_ENABLE_HEARTBEAT
+        bool "Enable Heartbeat component"
+        default y
+        help
+            Enable BLE connection monitoring with heartbeat mechanism.
+
+    config OMNITRIX_HEARTBEAT_SERVICE_UUID
+        depends on OMNITRIX_ENABLE_BLE && OMNITRIX_ENABLE_HEARTBEAT
+        string "Heartbeat BLE service UUID"
+        default "a82d3a40-9f08-4576-b2bc-a9d3b5425925"
+
+    config OMNITRIX_HEARTBEAT_CHARACTERISTIC_UUID
+        depends on OMNITRIX_ENABLE_BLE && OMNITRIX_ENABLE_HEARTBEAT
+        string "Heartbeat BLE characteristic UUID"
+        default "b0760c87-0f96-44d5-9a0d-723b60e54c12"
+
+    config OMNITRIX_HEARTBEAT_TIMEOUT_MS
+        depends on OMNITRIX_ENABLE_HEARTBEAT
+        int "Heartbeat timeout (milliseconds)"
+        range 1000 10000
+        default 3000
+        help
+            Time in milliseconds after which connection is considered lost
+            if no heartbeat is received.
+
 endmenu

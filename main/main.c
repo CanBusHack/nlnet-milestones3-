@@ -8,6 +8,10 @@
 #include <omnitrix/hello.h>
 #include <omnitrix/j2534.h>
 #include <omnitrix/ota.h>
+#include <omnitrix/debug.h>
+#include <omnitrix/led.h>
+#include <omnitrix/heartbeat.h>
+
 
 static const char tag[] = "omnitrix";
 
@@ -40,6 +44,13 @@ static void handle_ota_boot(void) {
 
 void app_main(void) {
     ESP_LOGI(tag, "main app started");
+
+    // Initialize debug UART first
+    omni_debug_init();
+    ESP_LOGI(tag, "After debug UART init");
+    omni_debug_log("MAIN", "Application starting...");
+    ESP_LOGI(tag, "After first debug log");
+
     handle_ota_boot();
 
 #ifdef CONFIG_OMNITRIX_ENABLE_BLE
@@ -53,9 +64,18 @@ void app_main(void) {
 #ifdef CONFIG_OMNITRIX_ENABLE_J2534
         omni_j2534_gatt_svr_svcs,
 #endif
+#ifdef CONFIG_OMNITRIX_ENABLE_LED
+        omni_led_gatt_svr_svcs,
+#endif
+
+#ifdef CONFIG_OMNITRIX_ENABLE_HEARTBEAT
+        
+        omni_heartbeat_gatt_svr_svcs,
+#endif
         NULL,
     };
     ESP_LOGI(tag, "starting BLE");
+    omni_debug_log("MAIN", "Initializing BLE...");
     omni_ble_main(gatt_svr_svcs);
 #endif
 
@@ -72,5 +92,17 @@ void app_main(void) {
 #ifdef CONFIG_OMNITRIX_ENABLE_J2534
     ESP_LOGI(tag, "starting J2534");
     omni_j2534_main();
+#endif
+
+#ifdef CONFIG_OMNITRIX_ENABLE_LED
+    ESP_LOGI(tag, "  - Heartbeat Service");
+    ESP_LOGI(tag, "starting LED service");
+    omni_led_main();  //  initialize LED hardware and BLE service
+#endif
+
+#ifdef CONFIG_OMNITRIX_ENABLE_HEARTBEAT
+    ESP_LOGI(tag, "  - Heartbeat Service");
+    ESP_LOGI(tag, "starting Heartbeat service");
+    omni_heartbeat_main();
 #endif
 }
