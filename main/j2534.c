@@ -16,43 +16,54 @@
 #include "isotp.h"
 #include "j2534.pb-c.h"
 
-#include "j2534/src/error_codes.h"
-#include "j2534/src/protocols.h"
-
-#define J2534CALL __attribute__((always_inline, nonnull(1))) static inline
-#include "j2534/src/j2534.c"
-#undef J2534CALL
+enum {
+    J1850VPW = 1,
+    J1850PWM = 2,
+    ISO9141 = 3,
+    ISO14230 = 4,
+    CAN = 5,
+    ISO15765 = 6,
+    SCI_A_ENGINE = 7,
+    SCI_A_TRANS = 8,
+    SCI_B_ENGINE = 9,
+    SCI_B_TRANS = 10,
+    ISO15765_PS = 0x8005,
+};
 
 enum {
-    DEVICE_HANDLE = 0x4b4e4c42,
+    STATUS_NOERROR = 0,
+    ERR_NOT_SUPPORTED = 1,
+    ERR_INVALID_CHANNEL_ID = 2,
+    ERR_INVALID_PROTOCOL_ID = 3,
+    ERR_NULL_PARAMETER = 4,
+    ERR_INVALID_IOCTL_VALUE = 5,
+    ERR_INVALID_FLAGS = 6,
+    ERR_FAILED = 7,
+    ERR_DEVICE_NOT_CONNECTED = 8,
+    ERR_TIMEOUT = 9,
+    ERR_INVALID_MSG = 10,
+    ERR_INVALID_TIME_INTERVAL = 11,
+    ERR_EXCEEDED_LIMIT = 12,
+    ERR_INVALID_MESSAGE_ID = 13,
+    ERR_DEVICE_IN_USE = 14,
+    ERR_INVALID_IOCTL_ID = 15,
+    ERR_BUFFER_EMPTY = 16,
+    ERR_BUFFER_FULL = 17,
+    ERR_BUFFER_OVERFLOW = 18,
+    ERR_PIN_INVALID = 19,
+    ERR_CHANNEL_IN_USE = 20,
+    ERR_MSG_PROTOCOL_ID = 21,
+    ERR_INVALID_FILTER_ID = 22,
+    ERR_NO_FLOW_CONTROL = 23,
+    ERR_NOT_UNIQUE = 24,
+    ERR_INVALID_BAUDRATE = 25,
+    ERR_INVALID_DEVICE_ID = 26,
+};
+
+enum {
     CH_CAN_1 = 0x314e4143,
     CH_ISO15765_1 = 0x314f5349,
     CH_ISO15765_2 = 0x324f5349,
-};
-
-static struct j2534_state state = {
-    .device_handle = DEVICE_HANDLE,
-    .version = {
-        .firmware = "00.01",
-        .dll = "",
-        .api = "",
-    },
-    .channels = (struct j2534_channel_state[]) {
-        {
-            .protocol = CAN,
-            .channel_handle = CH_CAN_1,
-        },
-        {
-            .protocol = ISO15765,
-            .channel_handle = CH_ISO15765_1,
-        },
-        {
-            .protocol = ISO15765_PS,
-            .channel_handle = CH_ISO15765_2,
-        },
-        { 0 },
-    },
-    .device_open = true,
 };
 
 static bool channels[2] = { 0 };

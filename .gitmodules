@@ -1,4 +1,0 @@
-[submodule "main/j2534"]
-	path = main/j2534
-	url = git@gitlab.com:canbushack/developers-only/blinkcar/j2534.git
-	branch = main
